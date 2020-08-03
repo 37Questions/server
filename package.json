@@ -12,13 +12,15 @@
   "license": "CC-BY-NC-SA-4.0",
   "dependencies": {
     "@types/express": "^4.17.4",
-    "@types/socket.io": "^2.1.4",
     "@types/mysql": "^2.15.15",
+    "@types/socket.io": "^2.1.4",
+    "@types/socket.io-redis": "^1.0.26",
+    "typescript": "^3.8.3",
     "aws-sdk": "^2.712.0",
     "express": "^4.17.1",
     "mysql": "^2.18.1",
     "socket.io": "^2.3.0",
-    "typescript": "^3.8.3"
+    "socket.io-redis": "^5.3.0"
   },
   "repository": {
     "type": "git",

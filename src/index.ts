@@ -1,56 +1,26 @@
 import express = require("express");
-import mysql = require("mysql");
+import sio = require("socket.io");
+import redis = require("socket.io-redis");
+import db from "./db";
 
 const app: express.Application = express();
 app.set("port", process.env.PORT || 3000);
-app.use(express.json());
 
 const http = require("http").createServer(app);
+const io = sio(http, {origins: "*:*"});
 
-const pool = mysql.createPool({
-  host: process.env.RDS_HOSTNAME,
-  port: parseInt(process.env.RDS_PORT as string),
-  user: process.env.RDS_USERNAME,
-  password: process.env.RDS_PASSWORD,
-  database: process.env.RDS_DATABASE
-});
-
-class Question {
-  id: number;
-  question: string;
-
-  constructor(id: number, question: string) {
-    this.id = id;
-    this.question = question;
-  }
-}
-
-function getQuestion(fn: (err?: string, question?: Question) => void): void {
-  pool.query(`
-      SELECT id, question
-      FROM questions
-      ORDER BY RAND()
-      LIMIT 1;
-  `, (err, rows) => {
-    if (err) {
-      console.warn("Failed to get question:", err.stack);
-      return fn("MySQL Error");
-    } else if (rows.length == 0) {
-      return fn("No Questions Left");
-    }
-    const row = rows[0];
-    return fn(undefined, new Question(row.id, row.question));
-  });
-}
+io.adapter(redis({
+  host: process.env.REDIS_HOST,
+  port: parseInt(process.env.REDIS_PORT as string) || 6379,
+  auth_pass: process.env.REDIS_PASS
+}));
 
 app.get("/status", (req, res) => {
-  res.send({
-    status: "ok"
-  })
+  res.send({status: "ok"})
 });
 
 app.get("/question", (req, res) => {
-  getQuestion((err, question) => {
+  db.getQuestion((err, question) => {
     if (err || !question) {
       return res.send({error: err});
     }
@@ -59,7 +29,14 @@ app.get("/question", (req, res) => {
       question: question.question,
     });
   });
-})
+});
+
+io.on("connection", (socket) => {
+  console.info("Received Socket Connection!");
+  socket.emit("init", {
+    hello: true
+  });
+});
 
 const server = http.listen(process.env.PORT || 3000, () => {
   console.log("Listening on port %d.", server.address().port);
