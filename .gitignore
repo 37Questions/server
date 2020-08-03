@@ -1,5 +1,14 @@
+# Node & Python
 node_modules/
-build/
+venv/
 
+# Generated Files
+build/
+questions.sql
+
+# IDE Project Files
 .idea/
 *.iml
+
+# Sensitive Data
+.env

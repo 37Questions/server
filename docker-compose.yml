@@ -1,0 +1,43 @@
+version: "3"
+
+networks:
+  questions:
+
+services:
+  redis:
+    image: "redis:alpine"
+    command: /etc/redis/redis.conf
+    networks:
+      - questions
+    volumes:
+      - ./dev/redis.conf:/etc/redis/redis.conf:ro
+    ports:
+      - 6379
+
+  node-server:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    image: node-server
+    networks:
+      - questions
+    depends_on:
+      - redis
+    restart: unless-stopped
+    env_file: ./dev/.env
+    environment:
+      - REDIS_HOST=redis
+      - REDIS_PASS=password
+    expose:
+      - "3000"
+
+  nginx:
+    image: nginx:latest
+    networks:
+      - questions
+    volumes:
+      - ./dev/nginx.conf:/etc/nginx/nginx.conf:ro
+    depends_on:
+      - node-server
+    ports:
+      - "3000:3000"
