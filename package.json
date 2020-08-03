@@ -1,0 +1,29 @@
+{
+  "name": "37-questions-server",
+  "version": "1.0.0",
+  "description": "The nodejs server for 37 Questions",
+  "main": "build/index.js",
+  "scripts": {
+    "tsc": "tsc",
+    "start": "tsc && node ./build/index.js"
+  },
+  "keywords": [],
+  "author": "raphydaphy",
+  "license": "CC-BY-NC-SA-4.0",
+  "dependencies": {
+    "@types/express": "4.17.4",
+    "@types/socket.io": "2.1.4",
+    "aws-sdk": "^2.712.0",
+    "express": "4.17.1",
+    "socket.io": "2.3.0",
+    "typescript": "^3.8.3"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/37Questions/server.git"
+  },
+  "bugs": {
+    "url": "https://github.com/37Questions/server/issues"
+  },
+  "homepage": "https://github.com/37Questions/server#readme"
+}
