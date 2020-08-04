@@ -14,3 +14,21 @@ CREATE TABLE `questions` (
   question VARCHAR(160) NOT NULL,
   PRIMARY KEY (id)
 );
+
+CREATE TABLE `rooms` (
+  id INT NOT NULL AUTO_INCREMENT,
+  token VARCHAR(8) NOT NULL,
+  last_active TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+  PRIMARY KEY (id)
+);
+
+CREATE TABLE `users` (
+  id INT NOT NULL AUTO_INCREMENT,
+  token VARCHAR(8) NOT NULL,
+  room_id INT,
+  name VARCHAR(16),
+  icon VARCHAR(16),
+  score INT NOT NULL DEFAULT 0,
+  PRIMARY KEY (id),
+  FOREIGN KEY (room_id) REFERENCES rooms(id) ON DELETE CASCADE
+);

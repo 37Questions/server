@@ -1,30 +1,34 @@
 import mysql = require("mysql");
 import Question from "./struct/question";
+import {Util} from "./helpers";
+import {User} from "./struct/user";
 
 const pool = mysql.createPool({
-  host: process.env.RDS_HOSTNAME,
+  host: process.env.RDS_HOSTNAME || "localhost",
   port: parseInt(process.env.RDS_PORT as string) || 3306,
-  user: process.env.RDS_USERNAME,
-  password: process.env.RDS_PASSWORD,
-  database: process.env.RDS_DATABASE
+  user: process.env.RDS_USERNAME || "questions",
+  password: process.env.RDS_PASSWORD || "password",
+  database: process.env.RDS_DATABASE || "questions_game"
 });
 
 class Database {
-  getQuestion(fn: (err?: string, question?: Question) => void): void {
+  createUser(fn: (err?: string, user?: User) => void): void {
+    let token = Util.makeHash(8);
     pool.query(`
-      SELECT id, question
-      FROM questions
-      ORDER BY RAND()
-      LIMIT 1;
-  `, (err, rows) => {
-      if (err) {
-        console.warn("Failed to get question:", err.stack);
+      INSERT INTO users (token) VALUES (?);
+    `, [token], (err, res) => {
+      if (err || res.affectedRows == 0) {
+        console.warn("Failed to create user:", err);
         return fn("MySQL Error");
-      } else if (rows.length == 0) {
-        return fn("No Questions Left");
       }
-      const row = rows[0];
-      return fn(undefined, new Question(row.id, row.question));
+
+      let user = new User({
+        id: res.insertId,
+        token: token
+      });
+
+      console.info(`Created user #${user.id} with token #${user.token}`);
+      return fn(undefined, user);
     });
   }
 }

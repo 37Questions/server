@@ -9,32 +9,30 @@ app.set("port", process.env.PORT || 3000);
 const http = require("http").createServer(app);
 const io = sio(http, {origins: "*:*"});
 
-io.adapter(redis({
-  host: process.env.REDIS_HOST,
-  port: parseInt(process.env.REDIS_PORT as string) || 6379,
-  auth_pass: process.env.REDIS_PASS
-}));
+if (process.env.REDIS_HOST) {
+  io.adapter(redis({
+    host: process.env.REDIS_HOST,
+    port: parseInt(process.env.REDIS_PORT as string) || 6379,
+    auth_pass: process.env.REDIS_PASS
+  }));
+} else {
+  console.warn("Redis connection info missing - proceeding in fallback mode");
+}
 
 app.get("/status", (req, res) => {
   res.send({status: "ok"})
 });
 
-app.get("/question", (req, res) => {
-  db.getQuestion((err, question) => {
-    if (err || !question) {
-      return res.send({error: err});
-    }
-    res.send({
-      id: question.id,
-      question: question.question,
-    });
-  });
-});
-
 io.on("connection", (socket) => {
   console.info("Received Socket Connection!");
-  socket.emit("init", {
-    hello: true
+
+  db.createUser((err, user) => {
+    if (err || !user) {
+      return console.warn("Failed to create a new user:", err);
+    }
+    socket.emit("init", {
+      user: user
+    });
   });
 });
 
