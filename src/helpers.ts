@@ -1,7 +1,8 @@
+/*******************
+ * Data Validation *
+ *******************/
+
 class Validation {
-  /*******************
-   * Data Validation *
-   *******************/
 
   static hash(hash: any, length: number): boolean {
     return typeof hash === "string" && hash.length === length;
@@ -23,10 +24,11 @@ class Validation {
     return typeof string === "string" && string.length > 0;
   }
 
-  /*******************
-   * General Helpers *
-   *******************/
 }
+
+/*******************
+ * General Helpers *
+ *******************/
 
 class Util {
   // generate a random hash
@@ -45,4 +47,18 @@ class Util {
   }
 }
 
-export {Validation, Util};
+/*************
+ * Constants *
+ *************/
+
+// A selection of Font Awesome icons suitable for profile pictures
+const Icons: Array<string> = [
+  "apple-alt",  "candy-cane", "carrot", "cat", "cheese", "cookie", "crow", "dog", "dove", "dragon", "egg", "fish",
+  "frog", "hamburger", "hippo", "horse", "hotdog", "ice-cream", "kiwi-bird", "leaf", "lemon", "otter", "paw",
+  "pepper-hot", "pizza-slice", "spider", "holly-berry", "bat", "deer", "duck", "elephant", "monkey", "narwhal",
+  "pig", "rabbit", "sheep", "squirrel", "turtle", "whale", "salad", "pumpkin", "wheat", "burrito", "cheese-swiss",
+  "croissant", "drumstick", "egg-fried", "french-fries", "gingerbread-man", "hat-chef", "meat", "pie", "popcorn",
+  "sausage", "steak", "taco", "turkey"
+];
+
+export {Validation, Util, Icons};
