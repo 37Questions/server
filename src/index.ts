@@ -2,14 +2,16 @@ import express = require("express");
 import sio = require("socket.io");
 import redis = require("socket.io-redis");
 import db from "./db";
-import {User} from "./struct/user";
+import {Icon, User} from "./struct/user";
 import {Icons} from "./helpers";
 
 const CLIENT_URL = process.env.CLIENT_URL || "http://192.168.0.102:3001";
 const PORT = process.env.PORT || 3000;
 
 const app: express.Application = express();
+
 app.set("port", PORT);
+app.use(express.json());
 
 const http = require("http").createServer(app);
 const io = sio(http, {origins: CLIENT_URL});
@@ -25,7 +27,8 @@ if (process.env.REDIS_HOST) {
 }
 
 app.use((req, res, next) => {
-  res.setHeader("Access-Control-Allow-Origin", CLIENT_URL);
+  res.header("Access-Control-Allow-Origin", CLIENT_URL);
+  res.header("Access-Control-Allow-Headers", "Origin, X-Requested-With, Content-Type, Accept");
   next();
 });
 
@@ -48,10 +51,21 @@ app.get("/icons", (req, res) => {
   res.send({
     icons: icons
   });
-})
+});
+
+app.post("/setup-acc", (req, res) => {
+  if (!req.body.hasOwnProperty("user")) return res.send({error: "Missing Credentials"});
+  if (!req.body.hasOwnProperty("icon")) return res.send({error: "Missing Icon Data"});
+
+  db.setupUser(new User(req.body.user), req.body.name, new Icon(req.body.icon)).then((success) => {
+    res.send({success: success});
+  }).catch((err) => {
+    res.send({error: err.message});
+  });
+});
 
 app.get("/validate-token", (req, res) => {
-  const queryUser = User.fromQuery(req.query);
+  let queryUser = new User(req.query);
   db.getUser(queryUser.id).then((user) => {
     if (user.id === queryUser.id && user.token === queryUser.token) {
       res.send({
@@ -87,7 +101,7 @@ app.post("/user", (req, res) => {
 });
 
 io.use((socket, next) => {
-  db.validateUser(User.fromQuery(socket.handshake.query)).then((valid) => {
+  db.validateUser(new User(socket.handshake.query)).then((valid) => {
     if (valid) next();
     else next(new Error("Invalid Authentication"));
   }).catch((err) => {
@@ -96,7 +110,7 @@ io.use((socket, next) => {
 });
 
 io.on("connection", (socket) => {
-  const user = User.fromQuery(socket.handshake.query);
+  let user = new User(socket.handshake.query);
   console.info(`User ${user.id} connected with token #${user.token}!`);
 
   socket.emit("init", {

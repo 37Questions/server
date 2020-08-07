@@ -1,6 +1,6 @@
 import mysql = require("mysql");
 import {Util, Validation} from "./helpers";
-import {User} from "./struct/user";
+import {Icon, User} from "./struct/user";
 
 const pool = mysql.createPool({
   host: process.env.RDS_HOSTNAME || "localhost",
@@ -74,6 +74,33 @@ class Database {
       } else if (res[0].token != user.token) {
         throw new Error("Invalid Token");
       } else return true;
+    });
+  }
+
+  async setupUser(user: User, name: any, icon: Icon): Promise<boolean> {
+    if (!Validation.string(name)) throw new Error("Invalid Name");
+    name = Util.stripHTML(name);
+    if (name.length < User.MIN_NAME_LENGTH) throw new Error(`Username must be at least ${User.MIN_NAME_LENGTH} characters!`);
+
+    let iconError = icon.error;
+    if (iconError) throw new Error(iconError);
+
+    return this.validateUser(user).then((valid) => {
+      if (!valid) throw new Error("Invalid User");
+
+      return query(`
+        UPDATE users
+        SET name = ?, iconName = ?, iconColor = ?, iconBackgroundColor = ?
+        WHERE id = ?
+      `, [
+        name,
+        icon.name,
+        icon.color,
+        icon.backgroundColor,
+        user.id
+      ]).then((res) => {
+        return res.affectedRows > 0;
+      });
     });
   }
 }

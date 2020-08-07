@@ -27,7 +27,9 @@ CREATE TABLE `users` (
   token VARCHAR(8) NOT NULL,
   room_id INT,
   name VARCHAR(16),
-  icon VARCHAR(16),
+  iconName VARCHAR(16),
+  iconColor SMALLINT,
+  iconBackgroundColor SMALLINT,
   score INT NOT NULL DEFAULT 0,
   PRIMARY KEY (id),
   FOREIGN KEY (room_id) REFERENCES rooms(id) ON DELETE CASCADE
