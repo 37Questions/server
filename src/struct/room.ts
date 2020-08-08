@@ -1,3 +1,8 @@
+class RoomVisibility {
+  static Private = "private";
+  static Public = "public";
+}
+
 class Room {
   static VisibilityOptions = ["private", "public"];
   static VotingMethods = ["rotate", "democratic"];
@@ -15,4 +20,4 @@ class Room {
   }
 }
 
-export {Room};
+export {Room, RoomVisibility};

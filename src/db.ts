@@ -1,7 +1,7 @@
 import mysql = require("mysql");
 import {Util, Validation} from "./helpers";
 import {Icon, User} from "./struct/user";
-import {Room} from "./struct/room";
+import {Room, RoomVisibility} from "./struct/room";
 
 const pool = mysql.createPool({
   host: process.env.RDS_HOSTNAME || "localhost",
@@ -139,6 +139,42 @@ class Database {
           DELETE FROM rooms WHERE id = ? LIMIT 1
         `, [roomId]).then(() => {
           throw error;
+        });
+      });
+    });
+  }
+
+  async getRoom(id: number | string): Promise<Room> {
+    if (typeof id === "string") id = parseInt(id);
+    if (!Validation.uint(id)) throw new Error("Missing Room ID");
+
+    return query(`
+      SELECT * FROM rooms
+      WHERE id = ?
+    `, [id]).then((res) => {
+      if (res.length < 1) throw new Error("Invalid Room ID");
+      return new Room(res[0]);
+    });
+  }
+
+  async joinRoom(userId: number | string, roomId: number | string, token: string): Promise<Room> {
+    return this.getRoom(roomId).then((room) => {
+      if (room.visibility !== RoomVisibility.Public && room.token !== token) throw new Error("Invalid Token");
+
+      return this.getUser(userId).then((user) => {
+        if (room.id === user.room_id) {
+          return room;
+        } else if (user.room_id) {
+          // TODO: leave previous room ?
+          throw new Error("Already in a room!");
+        }
+
+        return query(`
+          UPDATE users
+          SET room_id = ?
+          WHERE id = ?
+        `, [room.id, user.id]).then(() => {
+          return room;
         });
       });
     });
