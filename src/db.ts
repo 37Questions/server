@@ -1,6 +1,7 @@
 import mysql = require("mysql");
 import {Util, Validation} from "./helpers";
 import {Icon, User} from "./struct/user";
+import {Room} from "./struct/room";
 
 const pool = mysql.createPool({
   host: process.env.RDS_HOSTNAME || "localhost",
@@ -100,6 +101,45 @@ class Database {
         user.id
       ]).then((res) => {
         return res.affectedRows > 0;
+      });
+    });
+  }
+
+  async createRoom(userId: number, visibility: string, votingMethod: string): Promise<Room> {
+    if (!Validation.uint(userId)) throw new Error("Invalid User");
+    if (!Room.VisibilityOptions.includes(visibility)) throw new Error("Invalid Visibility Setting");
+    if (!Room.VotingMethods.includes(votingMethod)) throw new Error("Invalid Voting Method");
+
+    let token = Util.makeHash(TOKEN_LENGTH);
+
+    return query(`
+      INSERT INTO rooms (visibility, votingMethod, token)
+      VALUES (?, ?, ?)
+    `, [
+      visibility,
+      votingMethod,
+      token
+    ]).then((res) => {
+      let roomId = res.insertId;
+
+      return query(`
+        UPDATE users
+        SET room_id = ?
+        WHERE id = ?
+      `, [roomId, userId]).then(() => {
+        return new Room({
+          id: roomId,
+          visibility: visibility,
+          votingMethod: votingMethod,
+          token: token
+        });
+      }).catch((error) => {
+        console.warn(`Failed to add user #${userId} to newly created room #${roomId}:`, error);
+        return query(`
+          DELETE FROM rooms WHERE id = ? LIMIT 1
+        `, [roomId]).then(() => {
+          throw error;
+        });
       });
     });
   }

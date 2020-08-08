@@ -2,8 +2,9 @@ import express = require("express");
 import sio = require("socket.io");
 import redis = require("socket.io-redis");
 import db from "./db";
-import {Icon, User} from "./struct/user";
-import {Icons} from "./helpers";
+import {User} from "./struct/user";
+import {setupRoutes} from "./routes";
+import {onConnection} from "./socket";
 
 const CLIENT_URL = process.env.CLIENT_URL || "http://192.168.0.102:3001";
 const PORT = process.env.PORT || 3000;
@@ -32,73 +33,7 @@ app.use((req, res, next) => {
   next();
 });
 
-app.get("/status", (req, res) => {
-  res.send({status: "ok"})
-});
-
-app.get("/icons", (req, res) => {
-  let maxIcons = 15;
-  if (maxIcons > Icons.length) maxIcons = Icons.length;
-
-  let icons = [];
-
-  while (icons.length < maxIcons) {
-    let icon = Icons[Math.floor(Math.random() * Icons.length)];
-    if (icons.indexOf(icon) != -1) continue;
-    icons.push(icon);
-  }
-
-  res.send({
-    icons: icons
-  });
-});
-
-app.post("/setup-acc", (req, res) => {
-  if (!req.body.hasOwnProperty("user")) return res.send({error: "Missing Credentials"});
-  if (!req.body.hasOwnProperty("icon")) return res.send({error: "Missing Icon Data"});
-
-  db.setupUser(new User(req.body.user), req.body.name, new Icon(req.body.icon)).then((success) => {
-    res.send({success: success});
-  }).catch((err) => {
-    res.send({error: err.message});
-  });
-});
-
-app.get("/validate-token", (req, res) => {
-  let queryUser = new User(req.query);
-  db.getUser(queryUser.id).then((user) => {
-    if (user.id === queryUser.id && user.token === queryUser.token) {
-      res.send({
-        valid: true,
-        user: user
-      });
-    } else {
-      res.send({
-        valid: false,
-        error: "Invalid Token"
-      });
-    }
-  }).catch((err) => {
-    res.send({
-      valid: false,
-      error: err.message
-    });
-  });
-});
-
-app.post("/user", (req, res) => {
-  db.createUser().then((user) => {
-    res.send({
-      id: user.id,
-      token: user.token
-    });
-  }).catch((err) => {
-    console.warn("Failed to create a new user:", err);
-    res.send({
-      error: err.message
-    });
-  });
-});
+setupRoutes(app);
 
 io.use((socket, next) => {
   db.validateUser(new User(socket.handshake.query)).then((valid) => {
@@ -110,12 +45,8 @@ io.use((socket, next) => {
 });
 
 io.on("connection", (socket) => {
-  let user = new User(socket.handshake.query);
-  console.info(`User ${user.id} connected with token #${user.token}!`);
-
-  socket.emit("init", {
-    user: user
-  });
+  let userId = parseInt(socket.handshake.query.id);
+  onConnection(socket, userId);
 });
 
 http.listen(PORT, () => {

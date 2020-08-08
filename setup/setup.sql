@@ -17,8 +17,10 @@ CREATE TABLE `questions` (
 
 CREATE TABLE `rooms` (
   id INT NOT NULL AUTO_INCREMENT,
-  token VARCHAR(8) NOT NULL,
   last_active TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+  visibility ENUM("private", "public") DEFAULT "public",
+  votingMethod ENUM("rotate", "democratic") DEFAULT "rotate",
+  token VARCHAR(8),
   PRIMARY KEY (id)
 );
 
