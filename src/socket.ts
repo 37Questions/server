@@ -1,8 +1,18 @@
 import {Socket} from "socket.io";
 import db from "./db";
 
+function userRoom(userId: number) {
+  return "user-" + userId;
+}
+
 function onConnection(socket: Socket, userId: number) {
   console.info(`Received socket connection from user #${userId}`);
+
+  // TODO: handle logout
+  socket.to(userRoom(userId)).emit("logout");
+  socket.in(userRoom(userId)).leave(userRoom(userId));
+
+  socket.join(userRoom(userId));
 
   socket.emit("init", {
     userId: userId
