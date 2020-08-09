@@ -5,7 +5,7 @@ class User {
   token?: string;
   room_id?: number;
   name?: string;
-  icon?: string;
+  icon?: Icon;
   score?: number;
 
   static MIN_NAME_LENGTH = 3;
@@ -15,8 +15,18 @@ class User {
     this.token = user.token;
     this.room_id = user.room_id;
     this.name = user.name;
-    this.icon = user.icon;
+    if (user.iconName && user.iconColor && user.iconBackgroundColor) {
+      this.icon = new Icon(user);
+    }
     this.score = user.score || 0;
+  }
+
+  static tag(id: number | string) {
+    return "user-" + id;
+  }
+
+  get tag() {
+    return User.tag(this.id);
   }
 }
 
@@ -37,10 +47,6 @@ class Icon {
     if (!Validation.uint(this.color)) return "Missing Icon Color";
     if (!Validation.uint(this.backgroundColor)) return "Missing Icon Background Color";
     return undefined;
-  }
-
-  static fromQuery(query: any): Icon | string {
-    return new Icon(query.icon);
   }
 }
 

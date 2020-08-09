@@ -33,7 +33,7 @@ app.use((req, res, next) => {
   next();
 });
 
-setupRoutes(app);
+setupRoutes(app, io);
 
 io.use((socket, next) => {
   db.validateUser(new User(socket.handshake.query)).then((valid) => {

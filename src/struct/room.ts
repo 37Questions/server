@@ -18,6 +18,14 @@ class Room {
     this.votingMethod = room.votingMethod;
     this.token = room.token;
   }
+
+  static tag(id: number | string) {
+    return "room-" + id;
+  }
+
+  get tag() {
+    return Room.tag(this.id);
+  }
 }
 
 export {Room, RoomVisibility};

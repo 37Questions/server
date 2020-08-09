@@ -1,9 +1,11 @@
 import express = require("express");
+import SocketIO from "socket.io";
 import db from "./db";
 import {Icons} from "./helpers";
 import {Icon, User} from "./struct/user";
+import {Room} from "./struct/room";
 
-function setupRoutes(app: express.Application) {
+function setupRoutes(app: express.Application, io: SocketIO.Server) {
   app.get("/status", (req, res) => {
     res.send({status: "ok"})
   });
@@ -29,8 +31,15 @@ function setupRoutes(app: express.Application) {
     if (!req.body.hasOwnProperty("user")) return res.send({error: "Missing Credentials"});
     if (!req.body.hasOwnProperty("icon")) return res.send({error: "Missing Icon Data"});
 
-    db.setupUser(new User(req.body.user), req.body.name, new Icon(req.body.icon)).then((success) => {
-      res.send({success: success});
+    db.setupUser(new User(req.body.user), req.body.name, new Icon(req.body.icon)).then((user) => {
+      res.send({success: true});
+      if (!user.room_id) return;
+
+      io.to(Room.tag(user.room_id)).emit("userUpdated", {
+        id: user.id,
+        name: user.name,
+        icon: user.icon
+      });
     }).catch((err) => {
       res.send({error: err.message});
     });
@@ -38,18 +47,8 @@ function setupRoutes(app: express.Application) {
 
   app.get("/validate-token", (req, res) => {
     let queryUser = new User(req.query);
-    db.getUser(queryUser.id).then((user) => {
-      if (user.id === queryUser.id && user.token === queryUser.token) {
-        res.send({
-          valid: true,
-          user: user
-        });
-      } else {
-        res.send({
-          valid: false,
-          error: "Invalid Token"
-        });
-      }
+    db.validateUser(queryUser).then((valid) => {
+      res.send({ valid: valid });
     }).catch((err) => {
       res.send({
         valid: false,
@@ -66,9 +65,7 @@ function setupRoutes(app: express.Application) {
       });
     }).catch((err) => {
       console.warn("Failed to create a new user:", err);
-      res.send({
-        error: err.message
-      });
+      res.send({ error: err.message });
     });
   });
 }
