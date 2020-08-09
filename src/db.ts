@@ -55,14 +55,22 @@ class Database {
   async getUser(id: number | string, withToken = false): Promise<User> {
     let res = await query(`SELECT * FROM users WHERE id = ?`, [parseId(id)]);
 
-    if (res.length < 1) {
-      throw new Error("Invalid User");
-    } else {
-      let user = new User(res[0], withToken);
-      if (!withToken) user.token = undefined;
+    if (res.length < 1) throw new Error("Invalid User");
+    return new User(res[0], withToken);
+  }
 
-      return user;
-    }
+  async getRoomUser(id: number | string, roomId: number | string, withToken = false): Promise<User> {
+    id = parseId(id);
+    roomId = parseId(roomId);
+
+    let res = await query(`
+      SELECT * FROM roomUsers
+      INNER JOIN users ON roomUsers.user_id = users.id
+      WHERE roomUsers.user_id = ? AND roomUsers.room_id = ?
+    `, [id, roomId]);
+
+    if (res.length < 1) throw new Error("Invalid Room or User");
+    return new User(res[0], withToken);
   }
 
   async validateUser(user: User): Promise<boolean> {
@@ -83,6 +91,7 @@ class Database {
     if (!Validation.string(name)) throw new Error("Invalid Name");
     name = Util.stripHTML(name);
     if (name.length < User.MIN_NAME_LENGTH) throw new Error(`Username must be at least ${User.MIN_NAME_LENGTH} characters!`);
+    if (name.length > User.MAX_NAME_LENGTH) throw new Error(`Username cannot be longer than ${User.MAX_NAME_LENGTH} characters!`)
 
     let iconError = icon.error;
     if (iconError) throw new Error(iconError);

@@ -49,7 +49,7 @@ function onConnection(socket: Socket, userId: number) {
   }
 
   const joinSocketRoom = async (room: Room) => {
-    return db.getUser(userId).then((user) => {
+    return db.getRoomUser(userId, room.id).then((user) => {
       curRoomId = room.id;
 
       socket.join(room.tag);

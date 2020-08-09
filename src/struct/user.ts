@@ -2,6 +2,7 @@ import {Icons, Validation} from "../helpers";
 
 class User {
   static MIN_NAME_LENGTH = 3;
+  static MAX_NAME_LENGTH = 16;
 
   id: number;
   token?: string;
@@ -24,7 +25,7 @@ class User {
       });
     }
 
-    this.active = user.active;
+    this.active = !!user.active;
     this.score = user.score;
   }
 
