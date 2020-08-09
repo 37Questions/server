@@ -193,7 +193,7 @@ class Database {
       let messages = await query(`
         SELECT * FROM messages
         WHERE room_id = ?
-        ORDER BY created_at
+        ORDER BY created_at DESC
         LIMIT 50
       `, [room.id]);
 
@@ -235,8 +235,6 @@ class Database {
   }
 
   async createMessage(user: User, room: Room, body: string, isSystemMsg = false): Promise<Message> {
-    body = Util.stripHTML(body);
-
     if (body.length < Message.MIN_LENGTH) throw new Error(`Messages must be at least ${Message.MIN_LENGTH} character(s) long`);
     if (body.length > Message.MAX_LENGTH) throw new Error(`Messages cannot be longer than ${Message.MAX_LENGTH} characters`);
 

@@ -2,6 +2,8 @@ import {Socket} from "socket.io";
 import db from "./db";
 import {Room, RoomVisibility} from "./struct/room";
 import {User} from "./struct/user";
+import {Util, Validation} from "./helpers";
+import Message from "./struct/message";
 
 function onConnection(socket: Socket, userId: number) {
   let curRoomId: number | null = null;
@@ -122,6 +124,26 @@ function onConnection(socket: Socket, userId: number) {
       console.warn(`Failed to add user #${userId} to room #${data.id}:`, error.message);
       fn({error: error.message});
     });
+  });
+
+  socket.on("sendMessage", (data, fn) => {
+    db.getUser(userId).then(async (user) => {
+      if (!curRoomId) throw new Error("Not in a room");
+
+      let body = data.body;
+      if (!Validation.string(body)) throw new Error("Missing message body");
+      if (body.length < Message.MIN_LENGTH) throw new Error(`Message must be at least ${Message.MIN_LENGTH} character(s) long`);
+      if (body.length > Message.MAX_LENGTH) throw new Error(`Message cannot be longer than ${Message.MAX_LENGTH} characters`);
+
+      let room = await db.getRoom(curRoomId);
+      let message = await db.createMessage(user, room, body);
+
+      fn({message: message});
+      socket.to(room.tag).emit("chatMessage", { message: message });
+    }).catch((error) => {
+      console.warn(`Failed to send message:`, error.message);
+      fn({error: error.message});
+    })
   });
 }
 
