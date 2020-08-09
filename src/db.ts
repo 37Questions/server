@@ -1,7 +1,7 @@
 import mysql = require("mysql");
 import {Util, Validation} from "./helpers";
 import {Icon, User} from "./struct/user";
-import {Room, RoomVisibility} from "./struct/room";
+import {Room} from "./struct/room";
 
 const pool = mysql.createPool({
   host: process.env.RDS_HOSTNAME || "localhost",
@@ -15,7 +15,7 @@ async function query(sql: string, values: any[]): Promise<any> {
   return new Promise((resolve, reject) => {
     pool.query(sql, values, (err, res) => {
       if (err) {
-        console.warn("Failed to execute query:", sql, err.stack);
+        console.warn("Failed to execute query:", sql, err);
         return reject("MySQL Error");
       }
       resolve(res);
@@ -45,7 +45,7 @@ class Database {
     let user = new User({
       id: res.insertId,
       token: token
-    });
+    }, true);
 
     console.info(`Created user #${user.id} with token #${user.token}`);
     return user;
@@ -58,7 +58,7 @@ class Database {
     if (res.length < 1) {
       throw new Error("Invalid User");
     } else {
-      let user = new User(res[0]);
+      let user = new User(res[0], withToken);
       if (!withToken) user.token = undefined;
 
       return user;
@@ -105,8 +105,14 @@ class Database {
     return this.getUser(user.id);
   }
 
+  async addUserToRoom(userId: number, roomId: number) {
+    return query(`INSERT INTO roomUsers (user_id, room_id) VALUES (?, ?)`, [userId, roomId]);
+  }
+
   async createRoom(userId: number, visibility: string, votingMethod: string): Promise<Room> {
     if (!Validation.uint(userId)) throw new Error("Invalid User");
+    let user = await this.getUser(userId);
+
     if (!Room.VisibilityOptions.includes(visibility)) throw new Error("Invalid Visibility Setting");
     if (!Room.VotingMethods.includes(votingMethod)) throw new Error("Invalid Voting Method");
 
@@ -123,49 +129,74 @@ class Database {
 
     let roomId = res.insertId;
 
-    return query(`
-      UPDATE users
-      SET room_id = ?
-      WHERE id = ?
-    `, [roomId, userId]).then(() => {
+    return this.addUserToRoom(userId, roomId).then(() => {
+      user.active = true;
+      user.score = 0;
+
       return new Room({
         id: roomId,
         visibility: visibility,
         votingMethod: votingMethod,
-        token: token
+        token: token,
+        users: {
+          [user.id]: user
+        }
       } as Room);
     }).catch(async (error) => {
-      console.warn(`Failed to add user #${userId} to newly created room #${roomId}:`, error);
+      console.warn(`Failed to add user #${userId} to newly created room #${roomId}:`, error.message);
       await query(`DELETE FROM rooms WHERE id = ? LIMIT 1`, [roomId]);
       throw error;
     });
   }
 
-  async getRoom(id: number | string): Promise<Room> {
+  async getRoom(id: number | string, withUsers = false): Promise<Room> {
     let res = await query(`SELECT * FROM rooms WHERE id = ?`, [parseId(id)]);
 
     if (res.length < 1) throw new Error("Invalid Room ID");
-    return new Room(res[0]);
-  }
+    let room = new Room(res[0]);
 
-  async joinRoom(userId: number | string, roomId: number | string, token: string): Promise<Room> {
-    let room = await this.getRoom(roomId);
-    if (room.visibility !== RoomVisibility.Public && room.token !== token) throw new Error("Invalid Token");
+    if (withUsers) {
+      let users = await query(`
+        SELECT * FROM roomUsers
+        INNER JOIN users ON roomUsers.user_id = users.id
+        WHERE roomUsers.room_id = ?
+      `, [room.id]);
 
-    let user = await this.getUser(userId);
+      room.users = {};
 
-    if (room.id === user.room_id) return room;
-    if (user.room_id) throw new Error("Already in a room!");
+      for (let i = 0; i < users.length; i++) {
+        let user = new User(users[i]);
+        room.users[user.id] = user;
+      }
+    }
 
-    await query(`UPDATE users SET room_id = ? WHERE id = ?`, [room.id, user.id]);
     return room;
   }
 
-  async leaveRoom(userId: number | string): Promise<boolean> {
+  async setRoomUserActive(userId: number | string, roomId: number | string, active: boolean): Promise<boolean> {
+    userId = parseId(userId);
+    roomId = parseId(roomId);
+
+    let res = await query(`
+      UPDATE roomUsers SET active = ? WHERE user_id = ? AND room_id = ?
+    `, [active, userId, roomId]);
+    return res.affectedRows > 0;
+  }
+
+  async getActiveRoomsIdsFor(userId: number | string): Promise<number[]> {
     userId = parseId(userId);
 
-    let res = await query(`UPDATE users SET room_id = NULL WHERE id = ?`, [userId]);
-    return res.affectedRows > 0;
+    let rooms = await query(`
+      SELECT room_id from roomUsers where user_id = ? AND active = true
+    `, [userId]);
+
+    let roomIds: number[] = [];
+
+    for (let room = 0; room < rooms.length; room++) {
+      roomIds.push(rooms[room].room_id);
+    }
+
+    return roomIds;
   }
 }
 

@@ -1,3 +1,5 @@
+import {User} from "./user";
+
 class RoomVisibility {
   static Private = "private";
   static Public = "public";
@@ -12,14 +14,18 @@ class Room {
   votingMethod: string;
   token: string;
 
+  users?: Record<number, User>;
+
   constructor(room: Room) {
     this.id = room.id;
     this.visibility = room.visibility;
     this.votingMethod = room.votingMethod;
     this.token = room.token;
+    this.users = room.users;
   }
 
-  static tag(id: number | string) {
+  static tag(id: number | string, userId?: number | string): string {
+    if (userId) return Room.tag(id) + "-" + User.tag(userId);
     return "room-" + id;
   }
 

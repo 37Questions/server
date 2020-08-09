@@ -1,24 +1,31 @@
 import {Icons, Validation} from "../helpers";
 
 class User {
-  id: number;
-  token?: string;
-  room_id?: number;
-  name?: string;
-  icon?: Icon;
-  score?: number;
-
   static MIN_NAME_LENGTH = 3;
 
-  constructor(user: any) {
+  id: number;
+  token?: string;
+  name?: string;
+  icon?: Icon;
+
+  // Per-Room data
+  active?: boolean;
+  score?: number;
+
+  constructor(user: any, withToken = false) {
     this.id = parseInt(user.id);
-    this.token = user.token;
-    this.room_id = user.room_id;
+    if (withToken) this.token = user.token;
     this.name = user.name;
     if (user.iconName && user.iconColor && user.iconBackgroundColor) {
-      this.icon = new Icon(user);
+      this.icon = new Icon({
+        name: user.iconName,
+        color: user.iconColor,
+        backgroundColor: user.iconBackgroundColor
+      });
     }
-    this.score = user.score || 0;
+
+    this.active = user.active;
+    this.score = user.score;
   }
 
   static tag(id: number | string) {

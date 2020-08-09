@@ -36,13 +36,14 @@ app.use((req, res, next) => {
 setupRoutes(app, io);
 
 io.use((socket, next) => {
-  db.validateUser(new User(socket.handshake.query)).then((valid) => {
+  db.validateUser(new User(socket.handshake.query, true)).then((valid) => {
     if (valid) next();
     else next(new Error("Invalid Authentication"));
   }).catch((err) => {
     return next(err);
   });
 });
+
 
 io.on("connection", (socket) => {
   let userId = parseInt(socket.handshake.query.id);

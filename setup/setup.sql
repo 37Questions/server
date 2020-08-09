@@ -27,12 +27,19 @@ CREATE TABLE `rooms` (
 CREATE TABLE `users` (
   id INT NOT NULL AUTO_INCREMENT,
   token VARCHAR(8) NOT NULL,
-  room_id INT,
   name VARCHAR(16),
   iconName VARCHAR(16),
   iconColor SMALLINT,
   iconBackgroundColor SMALLINT,
-  score INT NOT NULL DEFAULT 0,
-  PRIMARY KEY (id),
-  FOREIGN KEY (room_id) REFERENCES rooms(id) ON DELETE CASCADE
+  PRIMARY KEY (id)
 );
+
+CREATE TABLE `roomUsers` (
+  user_id INT NOT NULL,
+  room_id INT NOT NULL,
+  active BOOLEAN DEFAULT TRUE,
+  score INT NOT NULL DEFAULT 0,
+  PRIMARY KEY (user_id, room_id),
+  FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE,
+  FOREIGN KEY (room_id) REFERENCES rooms(id) ON DELETE CASCADE
+)

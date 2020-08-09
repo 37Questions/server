@@ -31,14 +31,20 @@ function setupRoutes(app: express.Application, io: SocketIO.Server) {
     if (!req.body.hasOwnProperty("user")) return res.send({error: "Missing Credentials"});
     if (!req.body.hasOwnProperty("icon")) return res.send({error: "Missing Icon Data"});
 
-    db.setupUser(new User(req.body.user), req.body.name, new Icon(req.body.icon)).then((user) => {
-      res.send({success: true});
-      if (!user.room_id) return;
+    let user = new User(req.body.user, true);
+    let icon = new Icon(req.body.icon);
 
-      io.to(Room.tag(user.room_id)).emit("userUpdated", {
-        id: user.id,
-        name: user.name,
-        icon: user.icon
+    db.setupUser(user, req.body.name, icon).then(async (user) => {
+      res.send({success: true});
+
+      let roomIds = await db.getActiveRoomsIdsFor(user.id);
+
+      roomIds.forEach((roomId) => {
+        io.to(Room.tag(roomId)).emit("userUpdated", {
+          id: user.id,
+          name: user.name,
+          icon: user.icon
+        });
       });
     }).catch((err) => {
       res.send({error: err.message});
@@ -46,7 +52,7 @@ function setupRoutes(app: express.Application, io: SocketIO.Server) {
   });
 
   app.get("/validate-token", (req, res) => {
-    let queryUser = new User(req.query);
+    let queryUser = new User(req.query, true);
     db.validateUser(queryUser).then((valid) => {
       res.send({ valid: valid });
     }).catch((err) => {
@@ -64,7 +70,7 @@ function setupRoutes(app: express.Application, io: SocketIO.Server) {
         token: user.token
       });
     }).catch((err) => {
-      console.warn("Failed to create a new user:", err);
+      console.warn("Failed to create a new user:", err.message);
       res.send({ error: err.message });
     });
   });
