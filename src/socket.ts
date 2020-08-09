@@ -4,14 +4,16 @@ import {Room, RoomVisibility} from "./struct/room";
 import {User} from "./struct/user";
 
 function onConnection(socket: Socket, userId: number) {
-  // TODO: not sure if this is a great way to track cur room ?
   let curRoomId: number | null = null;
+  let loggedOut = false;
 
   const leaveCurRoom = async () => {
     return db.getUser(userId, true).then(async (user) => {
       if (curRoomId) {
         socket.leave(Room.tag(curRoomId));
         socket.leave(Room.tag(curRoomId, userId));
+
+        if (loggedOut) return user;
 
         socket.to(Room.tag(curRoomId)).emit("userLeft", {
           id: userId
@@ -34,7 +36,7 @@ function onConnection(socket: Socket, userId: number) {
     if (room.visibility !== RoomVisibility.Public && room.token !== token) throw new Error("Invalid Token");
 
     if (room.users.hasOwnProperty(userId)) {
-      socket.to(Room.tag(roomId, userId)).emit("logout");
+      socket.to(Room.tag(roomId, userId)).emit("forceLogout");
       await db.setRoomUserActive(userId, roomId, true);
       user.score = room.users[userId].score;
     } else {
@@ -81,8 +83,9 @@ function onConnection(socket: Socket, userId: number) {
     });
   });
 
-  socket.on("logout", () => {
+  socket.on("forcedLogout", () => {
     console.info(`Logging out user #${userId}`);
+    loggedOut = true;
     socket.disconnect(true);
   });
 
