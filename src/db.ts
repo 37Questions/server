@@ -2,6 +2,7 @@ import mysql = require("mysql");
 import {Util, Validation} from "./helpers";
 import {Icon, User} from "./struct/user";
 import {Room} from "./struct/room";
+import Message from "./struct/message";
 
 const pool = mysql.createPool({
   host: process.env.RDS_HOSTNAME || "localhost",
@@ -51,7 +52,6 @@ class Database {
     return user;
   }
 
-
   async getUser(id: number | string, withToken = false): Promise<User> {
     let res = await query(`SELECT * FROM users WHERE id = ?`, [parseId(id)]);
 
@@ -92,6 +92,7 @@ class Database {
     name = Util.stripHTML(name);
     if (name.length < User.MIN_NAME_LENGTH) throw new Error(`Username must be at least ${User.MIN_NAME_LENGTH} characters!`);
     if (name.length > User.MAX_NAME_LENGTH) throw new Error(`Username cannot be longer than ${User.MAX_NAME_LENGTH} characters!`)
+    if (name.includes(" ")) throw new Error("Username cannot contain spaces");
 
     let iconError = icon.error;
     if (iconError) throw new Error(iconError);
@@ -142,7 +143,7 @@ class Database {
       user.active = true;
       user.score = 0;
 
-      return new Room({
+      let room = new Room({
         id: roomId,
         visibility: visibility,
         votingMethod: votingMethod,
@@ -151,6 +152,15 @@ class Database {
           [user.id]: user
         }
       } as Room);
+
+      return this.createMessage(user, room, "Created the room", true).then((message) => {
+        room.messages = { [message.id]: message };
+        return room;
+      }).catch((error) => {
+        console.warn(`Failed to create initial message for room #${room.id}:`, error.message);
+        room.messages = {};
+        return room;
+      })
     }).catch(async (error) => {
       console.warn(`Failed to add user #${userId} to newly created room #${roomId}:`, error.message);
       await query(`DELETE FROM rooms WHERE id = ? LIMIT 1`, [roomId]);
@@ -158,7 +168,7 @@ class Database {
     });
   }
 
-  async getRoom(id: number | string, withUsers = false): Promise<Room> {
+  async getRoom(id: number | string, withUsers = false, withMessages = false): Promise<Room> {
     let res = await query(`SELECT * FROM rooms WHERE id = ?`, [parseId(id)]);
 
     if (res.length < 1) throw new Error("Invalid Room ID");
@@ -176,6 +186,22 @@ class Database {
       for (let i = 0; i < users.length; i++) {
         let user = new User(users[i]);
         room.users[user.id] = user;
+      }
+    }
+
+    if (withMessages) {
+      let messages = await query(`
+        SELECT * FROM messages
+        WHERE room_id = ?
+        ORDER BY created_at
+        LIMIT 50
+      `, [room.id]);
+
+      room.messages = {};
+
+      for (let i = 0; i < messages.length; i++) {
+        let message = new Message(messages[i]);
+        room.messages[message.id] = message;
       }
     }
 
@@ -206,6 +232,26 @@ class Database {
     }
 
     return roomIds;
+  }
+
+  async createMessage(user: User, room: Room, body: string, isSystemMsg = false): Promise<Message> {
+    body = Util.stripHTML(body);
+
+    if (body.length < Message.MIN_LENGTH) throw new Error(`Messages must be at least ${Message.MIN_LENGTH} character(s) long`);
+    if (body.length > Message.MAX_LENGTH) throw new Error(`Messages cannot be longer than ${Message.MAX_LENGTH} characters`);
+
+    let res = await query(`
+      INSERT INTO messages (user_id, room_id, body, isSystemMsg) VALUES (?, ?, ?, ?)
+    `, [user.id, room.id, body, isSystemMsg]);
+
+    return new Message({
+      id: res.insertId,
+      created_at: new Date().toISOString(),
+      user_id: user.id,
+      room_id: room.id,
+      body: body,
+      isSystemMsg: isSystemMsg
+    });
   }
 }
 

@@ -15,12 +15,20 @@ function onConnection(socket: Socket, userId: number) {
 
         if (loggedOut) return user;
 
-        socket.to(Room.tag(curRoomId)).emit("userLeft", {
-          id: userId
+        let room = await db.getRoom(curRoomId);
+        let message;
+
+        if (user.name && user.icon) {
+          message = await db.createMessage(user, room, "Left the room", true);
+        }
+
+        socket.to(room.tag).emit("userLeft", {
+          id: userId,
+          message: message
         });
 
-        await db.setRoomUserActive(userId, curRoomId, false).then(() => {
-          console.info(`Removed user #${userId} from active room #${curRoomId}`);
+        await db.setRoomUserActive(userId, room.id, false).then(() => {
+          console.info(`Removed user #${userId} from active room #${room.id}`);
           curRoomId = null;
         });
       }
@@ -31,7 +39,7 @@ function onConnection(socket: Socket, userId: number) {
   const joinRoom = async (roomId: number | string, token?: number | string) => {
     let user = await leaveCurRoom();
 
-    let room = await db.getRoom(roomId, true);
+    let room = await db.getRoom(roomId, true, true);
     if (!room.users) throw new Error("Corrupt Room (No users found)");
     if (room.visibility !== RoomVisibility.Public && room.token !== token) throw new Error("Invalid Token");
 

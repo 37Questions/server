@@ -2,7 +2,7 @@ import {Icons, Validation} from "../helpers";
 
 class User {
   static MIN_NAME_LENGTH = 3;
-  static MAX_NAME_LENGTH = 16;
+  static MAX_NAME_LENGTH = 12;
 
   id: number;
   token?: string;
