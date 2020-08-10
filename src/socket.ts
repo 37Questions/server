@@ -2,8 +2,18 @@ import {Socket} from "socket.io";
 import db from "./db";
 import {Room, RoomVisibility} from "./struct/room";
 import {User} from "./struct/user";
-import {Util, Validation} from "./helpers";
+import {Validation} from "./helpers";
 import Message from "./struct/message";
+
+class RoomJoinInfo {
+  room: Room;
+  message?: Message;
+
+  constructor(room: Room, message?: Message) {
+    this.room = room;
+    this.message = message;
+  }
+}
 
 function onConnection(socket: Socket, userId: number) {
   let curRoomId: number | null = null;
@@ -45,33 +55,45 @@ function onConnection(socket: Socket, userId: number) {
     if (!room.users) throw new Error("Corrupt Room (No users found)");
     if (room.visibility !== RoomVisibility.Public && room.token !== token) throw new Error("Invalid Token");
 
+    let message;
+    let shouldCreateMessage = false;
+
     if (room.users.hasOwnProperty(userId)) {
       socket.to(Room.tag(roomId, userId)).emit("forceLogout");
       await db.setRoomUserActive(userId, roomId, true);
       user.score = room.users[userId].score;
+      shouldCreateMessage = !room.users[userId].active;
     } else {
       await db.addUserToRoom(user.id, room.id);
       user.score = 0;
+      shouldCreateMessage = !!(user.name && user.icon);
     }
 
     user.active = true;
     room.users[user.id] = user;
 
-    return room;
+
+    if (shouldCreateMessage) {
+      message = await db.createMessage(user, room, "Joined the room", true);
+      room.messages[message.id] = message;
+    }
+
+    return new RoomJoinInfo(room, message);
   }
 
-  const joinSocketRoom = async (room: Room) => {
-    return db.getRoomUser(userId, room.id).then((user) => {
-      curRoomId = room.id;
+  const joinSocketRoom = async (info: RoomJoinInfo) => {
+    return db.getRoomUser(userId, info.room.id).then((user) => {
+      curRoomId = info.room.id;
 
-      socket.join(room.tag);
-      socket.join(Room.tag(room.id, userId));
+      socket.join(info.room.tag);
+      socket.join(Room.tag(info.room.id, userId));
 
-      socket.to(room.tag).emit("userJoined", {
-        user: user
+      socket.to(info.room.tag).emit("userJoined", {
+        user: user,
+        message: info.message
       });
 
-      return room;
+      return info.room;
     });
   };
 
@@ -104,7 +126,7 @@ function onConnection(socket: Socket, userId: number) {
     let votingMethod = data.votingMethod;
 
     db.createRoom(userId, visibility, votingMethod).then((room) => {
-      return joinSocketRoom(room).then((room) => {
+      return joinSocketRoom(new RoomJoinInfo(room)).then((room) => {
         console.info(`Created room #${room.id}`);
         fn({room: room});
       });
@@ -115,8 +137,8 @@ function onConnection(socket: Socket, userId: number) {
   });
 
   socket.on("joinRoom", (data, fn) => {
-    joinRoom(data.id, data.token).then((room) => {
-      return joinSocketRoom(room).then((room) => {
+    joinRoom(data.id, data.token).then((info) => {
+      return joinSocketRoom(info).then((room) => {
         console.info(`Added user #${userId} to room #${room.id}!`);
         fn({room: room});
       });
@@ -139,7 +161,7 @@ function onConnection(socket: Socket, userId: number) {
       let message = await db.createMessage(user, room, body);
 
       fn({message: message});
-      socket.to(room.tag).emit("chatMessage", { message: message });
+      socket.to(room.tag).emit("chatMessage", {message: message});
     }).catch((error) => {
       console.warn(`Failed to send message:`, error.message);
       fn({error: error.message});

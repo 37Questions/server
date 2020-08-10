@@ -15,16 +15,16 @@ class Room {
   votingMethod: string;
   token: string;
 
-  users?: Record<number, User>;
-  messages?: Record<number, Message>;
+  users: Record<number, User>;
+  messages: Record<number, Message>;
 
   constructor(room: Room) {
     this.id = room.id;
     this.visibility = room.visibility;
     this.votingMethod = room.votingMethod;
     this.token = room.token;
-    this.users = room.users;
-    this.messages = room.messages;
+    this.users = room.users || {};
+    this.messages = room.messages || {};
   }
 
   static tag(id: number | string, userId?: number | string): string {
