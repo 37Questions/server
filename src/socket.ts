@@ -55,8 +55,7 @@ function onConnection(socket: Socket, userId: number) {
     if (!room.users) throw new Error("Corrupt Room (No users found)");
     if (room.visibility !== RoomVisibility.Public && room.token !== token) throw new Error("Invalid Token");
 
-    let message;
-    let shouldCreateMessage = false;
+    let message, shouldCreateMessage;
 
     if (room.users.hasOwnProperty(userId)) {
       socket.to(Room.tag(roomId, userId)).emit("forceLogout");
@@ -71,7 +70,6 @@ function onConnection(socket: Socket, userId: number) {
 
     user.active = true;
     room.users[user.id] = user;
-
 
     if (shouldCreateMessage) {
       message = await db.createMessage(user, room, "Joined the room", true);
