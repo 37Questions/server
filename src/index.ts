@@ -6,7 +6,7 @@ import {User} from "./struct/user";
 import {setupRoutes} from "./routes";
 import {onConnection} from "./socket";
 
-const CLIENT_URL = process.env.CLIENT_URL || "http://192.168.0.102:3001";
+const CLIENT_URL = process.env.CLIENT_URL || "http://questions.ddns.net:3001";
 const PORT = process.env.PORT || 3000;
 
 const app: express.Application = express();

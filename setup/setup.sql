@@ -46,7 +46,7 @@ CREATE TABLE `roomUsers` (
 
 CREATE TABLE `messages` (
   id INT NOT NULL AUTO_INCREMENT,
-  created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+  created_at INT UNSIGNED,
   user_id INT NOT NULL,
   room_id INT NOT NULL,
   body VARCHAR(200),

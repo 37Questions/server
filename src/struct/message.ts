@@ -3,7 +3,7 @@ class Message {
   static MAX_LENGTH = 200;
 
   id: number;
-  created_at: string;
+  created_at: number;
   user_id: number;
   room_id: number;
   body: string;

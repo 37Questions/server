@@ -238,13 +238,15 @@ class Database {
     if (body.length < Message.MIN_LENGTH) throw new Error(`Messages must be at least ${Message.MIN_LENGTH} character(s) long`);
     if (body.length > Message.MAX_LENGTH) throw new Error(`Messages cannot be longer than ${Message.MAX_LENGTH} characters`);
 
+    let timestamp = Math.floor(new Date().getTime() / 1000);
+
     let res = await query(`
-      INSERT INTO messages (user_id, room_id, body, isSystemMsg) VALUES (?, ?, ?, ?)
-    `, [user.id, room.id, body, isSystemMsg]);
+      INSERT INTO messages (created_at, user_id, room_id, body, isSystemMsg) VALUES (?, ?, ?, ?, ?)
+    `, [timestamp, user.id, room.id, body, isSystemMsg]);
 
     return new Message({
       id: res.insertId,
-      created_at: new Date().toISOString(),
+      created_at: timestamp,
       user_id: user.id,
       room_id: room.id,
       body: body,
