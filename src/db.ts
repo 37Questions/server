@@ -2,7 +2,7 @@ import mysql = require("mysql");
 import {Util, Validation} from "./helpers";
 import {Icon, User} from "./struct/user";
 import {Room} from "./struct/room";
-import Message from "./struct/message";
+import {Message, MessageType} from "./struct/message";
 
 const pool = mysql.createPool({
   host: process.env.RDS_HOSTNAME || "localhost",
@@ -193,7 +193,7 @@ class Database {
       let messages = await query(`
         SELECT * FROM messages
         WHERE room_id = ?
-        ORDER BY created_at DESC
+        ORDER BY id DESC
         LIMIT 50
       `, [room.id]);
 
@@ -239,10 +239,27 @@ class Database {
     if (body.length > Message.MAX_LENGTH) throw new Error(`Messages cannot be longer than ${Message.MAX_LENGTH} characters`);
 
     let timestamp = Math.floor(new Date().getTime() / 1000);
+    let type = isSystemMsg ? MessageType.System : MessageType.Normal;
+
+    if (!isSystemMsg) {
+      let lastMessage = await query(`
+        SELECT user_id, body, type 
+        FROM messages WHERE room_id = ? 
+        ORDER BY id DESC LIMIT 1
+      `, [room.id]);
+
+      if (lastMessage.length > 0) {
+        let msg = lastMessage[0];
+        if (msg.user_id === user.id && msg.type !== MessageType.System) {
+          type = MessageType.Chained;
+        }
+      }
+    }
+
 
     let res = await query(`
-      INSERT INTO messages (created_at, user_id, room_id, body, isSystemMsg) VALUES (?, ?, ?, ?, ?)
-    `, [timestamp, user.id, room.id, body, isSystemMsg]);
+      INSERT INTO messages (created_at, user_id, room_id, body, type) VALUES (?, ?, ?, ?, ?)
+    `, [timestamp, user.id, room.id, body, type]);
 
     return new Message({
       id: res.insertId,
@@ -250,7 +267,7 @@ class Database {
       user_id: user.id,
       room_id: room.id,
       body: body,
-      isSystemMsg: isSystemMsg
+      type: type
     });
   }
 

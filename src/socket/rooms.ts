@@ -1,7 +1,7 @@
 import {SocketEventHandler} from "./helpers";
 import db from "../db";
 import {Room, RoomVisibility} from "../struct/room";
-import Message from "../struct/message";
+import {Message} from "../struct/message";
 
 class RoomJoinInfo {
   room: Room;

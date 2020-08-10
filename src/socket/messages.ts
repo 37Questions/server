@@ -1,5 +1,5 @@
 import {Validation} from "../helpers";
-import Message from "../struct/message";
+import {Message} from "../struct/message";
 import db from "../db";
 import {SocketEventHandler} from "./helpers";
 

@@ -1,5 +1,5 @@
 import {User} from "./user";
-import Message from "./message";
+import {Message} from "./message";
 
 class RoomVisibility {
   static Private = "private";

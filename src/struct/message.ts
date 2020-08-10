@@ -1,3 +1,9 @@
+class MessageType {
+  static Normal = "normal";
+  static System = "system";
+  static Chained = "chained";
+}
+
 class Message {
   static MIN_LENGTH = 1;
   static MAX_LENGTH = 200;
@@ -8,15 +14,17 @@ class Message {
   room_id: number;
   body: string;
   isSystemMsg: boolean;
+  isChained: boolean;
 
-  constructor(message: Message) {
+  constructor(message: any) {
     this.id = message.id;
     this.created_at = message.created_at;
     this.user_id = message.user_id;
     this.room_id = message.room_id;
     this.body = message.body;
-    this.isSystemMsg = message.isSystemMsg;
+    this.isSystemMsg = message.type === "system";
+    this.isChained = message.type === "chained";
   }
 }
 
-export default Message;
+export {Message, MessageType};

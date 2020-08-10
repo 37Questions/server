@@ -50,7 +50,7 @@ CREATE TABLE `messages` (
   user_id INT NOT NULL,
   room_id INT NOT NULL,
   body VARCHAR(200),
-  isSystemMsg BOOLEAN DEFAULT FALSE,
+  type ENUM("normal", "system", "chained") DEFAULT "normal",
   PRIMARY KEY(id),
   FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE,
   FOREIGN KEY (room_id) REFERENCES rooms(id) ON DELETE CASCADE
