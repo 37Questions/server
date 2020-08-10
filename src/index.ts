@@ -4,7 +4,7 @@ import redis = require("socket.io-redis");
 import db from "./db";
 import {User} from "./struct/user";
 import {setupRoutes} from "./routes";
-import {onConnection} from "./socket";
+import {onConnection} from "./socket/socket";
 
 const CLIENT_URL = process.env.CLIENT_URL || "http://questions.ddns.net:3001";
 const PORT = process.env.PORT || 3000;

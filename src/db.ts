@@ -253,6 +253,27 @@ class Database {
       isSystemMsg: isSystemMsg
     });
   }
+
+  async getMessage(id: number | string, room: Room): Promise<Message> {
+    id = parseId(id);
+
+    let res = await query(`
+      SELECT * FROM messages WHERE id = ? AND room_id = ?
+    `, [id, room.id]);
+
+    if (res.length < 1) throw new Error("Invalid Message");
+    return new Message(res[0]);
+  }
+
+  async updateMessage(id: number | string, room: Room, body: string): Promise<boolean> {
+    id = parseId(id);
+
+    let res = await query(`
+      UPDATE messages SET body = ? WHERE id = ? AND room_id = ?
+    `, [body, id, room.id]);
+
+    return res.affectedRows > 0;
+  }
 }
 
 const db = new Database();
