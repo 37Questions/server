@@ -1,4 +1,4 @@
-import {Room} from "../struct/room";
+import {Room, RoomVisibility} from "../struct/room";
 import {Constants, Util, Validation} from "../helpers";
 import pool from "./pool";
 import {User} from "../struct/user";
@@ -121,6 +121,22 @@ class RoomDBHandler {
     }
 
     return room;
+  }
+
+  static async getList(): Promise<Room[]> {
+    let res = await pool.query(`
+      SELECT * FROM rooms WHERE visibility = ?
+      ORDER BY last_active DESC
+      LIMIT 15
+    `, [RoomVisibility.Public]);
+
+    let rooms = [];
+
+    for (let i = 0; i < res.length; i++) {
+      rooms.push(new Room(res[i]));
+    }
+
+    return rooms;
   }
 
   static async getUser(id: number | string, roomId: number | string, withToken = false): Promise<User> {

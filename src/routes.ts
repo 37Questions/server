@@ -90,6 +90,15 @@ function setupRoutes(app: express.Application, io: SocketIO.Server) {
       res.send({ error: err.message });
     });
   });
+
+  app.get("/rooms", (req, res) => {
+    db.rooms.getList().then((rooms) => {
+      res.send({rooms: rooms});
+    }).catch((err) => {
+      console.warn(`Failed to get room list:`, err.message);
+      res.send({error: err.message});
+    })
+  })
 }
 
 export {setupRoutes};

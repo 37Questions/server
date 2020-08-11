@@ -11,6 +11,7 @@ class Room {
   static VotingMethods = ["rotate", "democratic"];
 
   id: number;
+  last_active: number;
   visibility: string;
   votingMethod: string;
   token: string;
@@ -20,6 +21,7 @@ class Room {
 
   constructor(room: Room) {
     this.id = room.id;
+    this.last_active = room.last_active;
     this.visibility = room.visibility;
     this.votingMethod = room.votingMethod;
     this.token = room.token;
