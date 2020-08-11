@@ -2,7 +2,7 @@ import mysql = require("mysql");
 import {Util, Validation} from "./helpers";
 import {Icon, User} from "./struct/user";
 import {Room} from "./struct/room";
-import {Message, MessageType} from "./struct/message";
+import {Message, MessageLike, MessageType} from "./struct/message";
 
 const pool = mysql.createPool({
   host: process.env.RDS_HOSTNAME || "localhost",
@@ -191,17 +191,45 @@ class Database {
 
     if (withMessages) {
       let messages = await query(`
-        SELECT * FROM messages
-        WHERE room_id = ?
-        ORDER BY id DESC
+        SELECT 
+          msg.id, msg.created_at, msg.user_id, 
+          msg.body, msg.type, 
+          GROUP_CONCAT(
+            DISTINCT CONCAT(likes.user_id, ':', likes.since) 
+            SEPARATOR ','
+          ) AS likes
+        FROM messages msg
+        LEFT JOIN messageLikes likes ON msg.id = likes.message_id
+        WHERE msg.room_id = ?
+        GROUP BY msg.id
+        ORDER BY msg.id DESC
         LIMIT 50
       `, [room.id]);
 
       room.messages = {};
 
-      for (let i = 0; i < messages.length; i++) {
-        let message = new Message(messages[i]);
-        room.messages[message.id] = message;
+      for (let msg = 0; msg < messages.length; msg++) {
+        let row = messages[msg];
+        let likes: Record<number, MessageLike> = {};
+        if (row.likes) {
+          let likesData = row.likes.split(",");
+          for (let like = 0; like < likesData.length; like++) {
+            let likeData = likesData[like].split(":");
+            likes[likeData[0]] = new MessageLike({
+              user_id: likeData[0],
+              since: likeData[1]
+            });
+          }
+        }
+        room.messages[row.id] = new Message({
+          id: row.id,
+          created_at: row.created_at,
+          user_id: row.user_id,
+          body: row.body,
+          type: row.type,
+          likes: likes
+        });
+        if (msg === messages.length - 1) room.messages[row.id].isChained = false;
       }
     }
 
@@ -238,7 +266,7 @@ class Database {
     if (body.length < Message.MIN_LENGTH) throw new Error(`Messages must be at least ${Message.MIN_LENGTH} character(s) long`);
     if (body.length > Message.MAX_LENGTH) throw new Error(`Messages cannot be longer than ${Message.MAX_LENGTH} characters`);
 
-    let timestamp = Math.floor(new Date().getTime() / 1000);
+    let timestamp = Util.unixTimestamp();
     let type = isSystemMsg ? MessageType.System : MessageType.Normal;
 
     if (!isSystemMsg) {
@@ -265,13 +293,12 @@ class Database {
       id: res.insertId,
       created_at: timestamp,
       user_id: user.id,
-      room_id: room.id,
       body: body,
       type: type
     });
   }
 
-  async getMessage(id: number | string, room: Room): Promise<Message> {
+  async getMessage(id: number | string, room: Room, withLikes = false): Promise<Message> {
     id = parseId(id);
 
     let res = await query(`
@@ -279,15 +306,68 @@ class Database {
     `, [id, room.id]);
 
     if (res.length < 1) throw new Error("Invalid Message");
-    return new Message(res[0]);
+
+    let message = new Message(res[0]);
+    if (withLikes) message.likes = await this.getMessageLikes(id);
+
+    return message;
   }
 
-  async updateMessage(id: number | string, room: Room, body: string): Promise<boolean> {
+  async getMessageLikes(id: number): Promise<Record<number, MessageLike>> {
     id = parseId(id);
 
     let res = await query(`
-      UPDATE messages SET body = ? WHERE id = ? AND room_id = ?
-    `, [body, id, room.id]);
+      SELECT user_id, since FROM messageLikes WHERE message_id = ?
+    `, [id]);
+
+    let likes: Record<number, MessageLike> = {};
+
+    for (let i = 0; i < res.length; i++) {
+      let like = new MessageLike(res[i]);
+      likes[like.user_id] = like;
+    }
+
+    return likes;
+  }
+
+  async updateMessage(id: number | string, body: string): Promise<boolean> {
+    id = parseId(id);
+
+    let res = await query(`
+      UPDATE messages SET body = ? WHERE id = ?
+    `, [body, id]);
+
+    return res.affectedRows > 0;
+  }
+
+  async likeMessage(id: number | string, user: User): Promise<MessageLike> {
+    id = parseId(id);
+
+    let existing = await query(`
+      SELECT since FROM messageLikes
+      WHERE message_id = ? AND user_id = ?
+   `, [id, user.id]);
+    if (existing.length > 0) throw new Error("Message was already liked");
+
+    let timestamp = Util.unixTimestamp();
+    await query(`
+      INSERT INTO messageLikes (message_id, user_id, since)
+      VALUES (?, ?, ?)
+    `, [id, user.id, timestamp]);
+
+    return new MessageLike({
+      user_id: user.id,
+      since: timestamp
+    });
+  }
+
+  async unlikeMessage(id: number | string, user: User): Promise<boolean> {
+    id = parseId(id);
+
+    let res = await query(`
+      DELETE FROM messageLikes
+      WHERE message_id = ? AND user_id = ?
+    `, [id, user.id]);
 
     return res.affectedRows > 0;
   }

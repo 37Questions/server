@@ -45,6 +45,10 @@ class Util {
   static stripHTML(string: string) {
     return string.replace(/</g, "&lt;").replace(/>/g, "&gt;");
   }
+
+  static unixTimestamp() {
+    return Math.floor(new Date().getTime() / 1000);
+  }
 }
 
 /*************

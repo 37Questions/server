@@ -2,6 +2,7 @@ import {Validation} from "../helpers";
 import {Message} from "../struct/message";
 import db from "../db";
 import {SocketEventHandler} from "./helpers";
+import {Room} from "../struct/room";
 
 class MessageEventHandler extends SocketEventHandler {
   validateMessageBody(body: string): string {
@@ -25,8 +26,8 @@ class MessageEventHandler extends SocketEventHandler {
     });
 
     this.listen("editMessage", async (data) => {
-      let user = await db.getUser(this.socketUser.id);
       if (!this.socketUser.roomId) throw new Error("Not in a room");
+      let user = await db.getUser(this.socketUser.id);
 
       let body = this.validateMessageBody(data.body);
       let room = await db.getRoom(this.socketUser.roomId);
@@ -34,13 +35,39 @@ class MessageEventHandler extends SocketEventHandler {
 
       if (message.user_id !== user.id) throw new Error("Insufficient permission");
 
-      await db.updateMessage(message.id, room, body);
+      await db.updateMessage(message.id, body);
 
       message.body = body;
 
       this.socket.to(room.tag).emit("messageEdited", {message: message});
       return {message: message};
     });
+
+    this.listen("likeMessage", async (data) => {
+      if (!this.socketUser.roomId) throw new Error("Not in a room");
+      let user = await db.getUser(this.socketUser.id);
+      let like = await db.likeMessage(data.id, user);
+
+      this.socket.to(Room.tag(this.socketUser.roomId)).emit("messageLiked", {
+        message_id: data.id,
+        like: like
+      });
+
+      return {like: like};
+    });
+
+    this.listen("unlikeMessage", async (data) => {
+      if (!this.socketUser.roomId) throw new Error("Not in a room");
+      let user = await db.getUser(this.socketUser.id);
+      if (!await db.unlikeMessage(data.id, user)) throw new Error("Failed to unlike message");
+
+      this.socket.to(Room.tag(this.socketUser.roomId)).emit("messageUnliked", {
+        message_id: data.id,
+        user_id: user.id
+      });
+
+      return {success: true};
+    })
   }
 }
 

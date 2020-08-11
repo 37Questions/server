@@ -46,7 +46,7 @@ CREATE TABLE `roomUsers` (
 
 CREATE TABLE `messages` (
   id INT NOT NULL AUTO_INCREMENT,
-  created_at INT UNSIGNED,
+  created_at INT UNSIGNED NOT NULL,
   user_id INT NOT NULL,
   room_id INT NOT NULL,
   body VARCHAR(200),
@@ -54,4 +54,13 @@ CREATE TABLE `messages` (
   PRIMARY KEY(id),
   FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE,
   FOREIGN KEY (room_id) REFERENCES rooms(id) ON DELETE CASCADE
+);
+
+CREATE TABLE `messageLikes` (
+  message_id INT NOT NULL,
+  user_id INT NOT NULL,
+  since INT UNSIGNED NOT NULL,
+  PRIMARY KEY(message_id, user_id),
+  FOREIGN KEY (message_id) REFERENCES messages(id) ON DELETE CASCADE,
+  FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
 );
