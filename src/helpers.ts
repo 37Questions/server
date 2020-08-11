@@ -49,20 +49,30 @@ class Util {
   static unixTimestamp() {
     return Math.floor(new Date().getTime() / 1000);
   }
+
+  static parseId(id: number | string): number {
+    if (typeof id === "string") id = parseInt(id);
+    if (!Validation.uint(id)) throw new Error("Invalid ID");
+    return id;
+  }
 }
 
 /*************
  * Constants *
  *************/
 
-// A selection of Font Awesome icons suitable for profile pictures
-const Icons: Array<string> = [
-  "apple-alt",  "candy-cane", "carrot", "cat", "cheese", "cookie", "crow", "dog", "dove", "dragon", "egg", "fish",
-  "frog", "hamburger", "hippo", "horse", "hotdog", "ice-cream", "kiwi-bird", "leaf", "lemon", "otter", "paw",
-  "pepper-hot", "pizza-slice", "spider", "holly-berry", "bat", "deer", "duck", "elephant", "monkey", "narwhal",
-  "pig", "rabbit", "sheep", "squirrel", "turtle", "whale", "salad", "pumpkin", "wheat", "burrito", "cheese-swiss",
-  "croissant", "drumstick", "egg-fried", "french-fries", "gingerbread-man", "hat-chef", "meat", "pie", "popcorn",
-  "sausage", "steak", "taco", "turkey"
-];
+class Constants {
+  static TokenLength = 8;
 
-export {Validation, Util, Icons};
+  // A selection of Font Awesome icons suitable for profile pictures
+  static Icons: Array<string> = [
+    "apple-alt",  "candy-cane", "carrot", "cat", "cheese", "cookie", "crow", "dog", "dove", "dragon", "egg", "fish",
+    "frog", "hamburger", "hippo", "horse", "hotdog", "ice-cream", "kiwi-bird", "leaf", "lemon", "otter", "paw",
+    "pepper-hot", "pizza-slice", "spider", "holly-berry", "bat", "deer", "duck", "elephant", "monkey", "narwhal",
+    "pig", "rabbit", "sheep", "squirrel", "turtle", "whale", "salad", "pumpkin", "wheat", "burrito", "cheese-swiss",
+    "croissant", "drumstick", "egg-fried", "french-fries", "gingerbread-man", "hat-chef", "meat", "pie", "popcorn",
+    "sausage", "steak", "taco", "turkey"
+  ];
+}
+
+export {Validation, Util, Constants};

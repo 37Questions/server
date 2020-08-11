@@ -1,4 +1,4 @@
-import {Icons, Validation} from "../helpers";
+import {Constants, Validation} from "../helpers";
 
 class User {
   static MIN_NAME_LENGTH = 3;
@@ -55,7 +55,7 @@ class Icon {
 
   get error() {
     if (!Validation.string(this.name)) return "Missing Icon Name";
-    if (!Icons.includes(this.name)) return "Invalid Icon Name";
+    if (!Constants.Icons.includes(this.name)) return "Invalid Icon Name";
     if (!Validation.uint(this.color)) return "Missing Icon Color";
     if (!Validation.uint(this.backgroundColor)) return "Missing Icon Background Color";
     return undefined;

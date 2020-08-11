@@ -1,7 +1,7 @@
 import express = require("express");
 import sio = require("socket.io");
 import redis = require("socket.io-redis");
-import db from "./db";
+import db from "./db/db";
 import {User} from "./struct/user";
 import {setupRoutes} from "./routes";
 import {onConnection} from "./socket/socket";
@@ -36,7 +36,7 @@ app.use((req, res, next) => {
 setupRoutes(app, io);
 
 io.use((socket, next) => {
-  db.validateUser(new User(socket.handshake.query, true)).then((valid) => {
+  db.users.validate(new User(socket.handshake.query, true)).then((valid) => {
     if (valid) next();
     else next(new Error("Invalid Authentication"));
   }).catch((err) => {

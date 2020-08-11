@@ -1,7 +1,7 @@
 import express = require("express");
 import SocketIO from "socket.io";
-import db from "./db";
-import {Icons} from "./helpers";
+import db from "./db/db";
+import {Constants} from "./helpers";
 import {Icon, User} from "./struct/user";
 
 function setupRoutes(app: express.Application, io: SocketIO.Server) {
@@ -10,13 +10,13 @@ function setupRoutes(app: express.Application, io: SocketIO.Server) {
   });
 
   app.get("/icons", (req, res) => {
-    let maxIcons = 15;
-    if (maxIcons > Icons.length) maxIcons = Icons.length;
+    let maxIcons = 16;
+    if (maxIcons > Constants.Icons.length) maxIcons = Constants.Icons.length;
 
     let icons = [];
 
     while (icons.length < maxIcons) {
-      let icon = Icons[Math.floor(Math.random() * Icons.length)];
+      let icon = Constants.Icons[Math.floor(Math.random() * Constants.Icons.length)];
       if (icons.indexOf(icon) != -1) continue;
       icons.push(icon);
     }
@@ -33,11 +33,11 @@ function setupRoutes(app: express.Application, io: SocketIO.Server) {
     let user = new User(req.body.user, true);
     let icon = new Icon(req.body.icon);
 
-    db.getUser(user.id, false).then(async (oldUser) => {
-      let newUser = await db.setupUser(user, req.body.name, icon);
+    db.users.get(user.id, false).then(async (oldUser) => {
+      let newUser = await db.users.setup(user, req.body.name, icon);
       res.send({success: true});
 
-      let roomIds = await db.getActiveRoomsIdsFor(newUser.id);
+      let roomIds = await db.rooms.getActiveIdsFor(newUser.id);
       if (roomIds.length === 0) return;
 
       let messageBody = "Joined the room";
@@ -49,8 +49,8 @@ function setupRoutes(app: express.Application, io: SocketIO.Server) {
       }
 
       roomIds.forEach((roomId) => {
-        db.getRoom(roomId).then(async (room) => {
-          let message = await db.createMessage(user, room, messageBody, true);
+        db.rooms.get(roomId).then(async (room) => {
+          let message = await db.messages.create(newUser, room, messageBody, true);
 
           io.to(room.tag).emit("userUpdated", {
             id: newUser.id,
@@ -69,7 +69,7 @@ function setupRoutes(app: express.Application, io: SocketIO.Server) {
 
   app.get("/validate-token", (req, res) => {
     let queryUser = new User(req.query, true);
-    db.validateUser(queryUser).then((valid) => {
+    db.users.validate(queryUser).then((valid) => {
       res.send({ valid: valid });
     }).catch((err) => {
       res.send({
@@ -80,7 +80,7 @@ function setupRoutes(app: express.Application, io: SocketIO.Server) {
   });
 
   app.post("/user", (req, res) => {
-    db.createUser().then((user) => {
+    db.users.create().then((user) => {
       res.send({
         id: user.id,
         token: user.token

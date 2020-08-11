@@ -1,5 +1,5 @@
 import {SocketEventHandler} from "./helpers";
-import db from "../db";
+import db from "../db/db";
 import {Room, RoomVisibility} from "../struct/room";
 import {Message} from "../struct/message";
 
@@ -15,7 +15,7 @@ class RoomJoinInfo {
 
 class RoomEventHandler extends SocketEventHandler {
   async leaveCurRoom() {
-    let user = await db.getUser(this.socketUser.id, true);
+    let user = await db.users.get(this.socketUser.id, true);
     if (!this.socketUser.roomId) return user;
 
     this.socket.leave(Room.tag(this.socketUser.roomId));
@@ -23,11 +23,11 @@ class RoomEventHandler extends SocketEventHandler {
 
     if (this.socketUser.loggedOut) return user;
 
-    let room = await db.getRoom(this.socketUser.roomId);
+    let room = await db.rooms.get(this.socketUser.roomId);
     let message;
 
     if (user.name && user.icon) {
-      message = await db.createMessage(user, room, "Left the room", true);
+      message = await db.messages.create(user, room, "Left the room", true);
     }
 
     this.socket.to(room.tag).emit("userLeft", {
@@ -35,7 +35,7 @@ class RoomEventHandler extends SocketEventHandler {
       message: message
     });
 
-    await db.setRoomUserActive(this.socketUser.id, room.id, false).then(() => {
+    await db.rooms.setUserActive(this.socketUser.id, room.id, false).then(() => {
       console.info(`Removed user #${this.socketUser.id} from active room #${room.id}`);
       this.socketUser.roomId = undefined;
     });
@@ -46,7 +46,7 @@ class RoomEventHandler extends SocketEventHandler {
   async joinRoom(roomId: number | string, token?: number | string) {
     let user = await this.leaveCurRoom();
 
-    let room = await db.getRoom(roomId, true, true);
+    let room = await db.rooms.get(roomId, true, true);
     if (!room.users) throw new Error("Corrupt Room (No users found)");
     if (room.visibility !== RoomVisibility.Public && room.token !== token) throw new Error("Invalid Token");
 
@@ -54,11 +54,11 @@ class RoomEventHandler extends SocketEventHandler {
 
     if (room.users.hasOwnProperty(this.socketUser.id)) {
       this.socket.to(Room.tag(roomId, this.socketUser.id)).emit("forceLogout");
-      await db.setRoomUserActive(this.socketUser.id, roomId, true);
+      await db.rooms.setUserActive(this.socketUser.id, roomId, true);
       user.score = room.users[this.socketUser.id].score;
       shouldCreateMessage = shouldCreateMessage && !room.users[this.socketUser.id].active;
     } else {
-      await db.addUserToRoom(user.id, room.id);
+      await db.rooms.addUser(user.id, room.id);
       user.score = 0;
     }
 
@@ -67,14 +67,14 @@ class RoomEventHandler extends SocketEventHandler {
 
     if (!shouldCreateMessage) return new RoomJoinInfo(room);
 
-    let message = await db.createMessage(user, room, "Joined the room", true);
+    let message = await db.messages.create(user, room, "Joined the room", true);
     room.messages[message.id] = message;
 
     return new RoomJoinInfo(room, message);
   }
 
   async joinSocketRoom(info: RoomJoinInfo) {
-    let user = await db.getRoomUser(this.socketUser.id, info.room.id);
+    let user = await db.rooms.getUser(this.socketUser.id, info.room.id);
     this.socketUser.roomId = info.room.id;
 
     this.socket.join(info.room.tag);
@@ -93,7 +93,7 @@ class RoomEventHandler extends SocketEventHandler {
       let visibility = data.visibility;
       let votingMethod = data.votingMethod;
 
-      let room = await db.createRoom(this.socketUser.id, visibility, votingMethod);
+      let room = await db.rooms.create(this.socketUser.id, visibility, votingMethod);
       return this.joinSocketRoom(new RoomJoinInfo(room)).then((room) => {
         console.info(`Created room #${room.id}`);
         return {room: room};

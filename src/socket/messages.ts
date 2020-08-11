@@ -1,6 +1,6 @@
 import {Validation} from "../helpers";
 import {Message} from "../struct/message";
-import db from "../db";
+import db from "../db/db";
 import {SocketEventHandler} from "./helpers";
 import {Room} from "../struct/room";
 
@@ -16,12 +16,12 @@ class MessageEventHandler extends SocketEventHandler {
     this.listen("sendMessage", async (data) => {
       if (!this.socketUser.roomId) throw new Error("Not in a room");
 
-      let user = await db.getUser(this.socketUser.id);
+      let user = await db.users.get(this.socketUser.id);
       if (!user.setup) throw new Error("A name and icon is required to send messages");
 
       let body = this.validateMessageBody(data.body);
-      let room = await db.getRoom(this.socketUser.roomId);
-      let message = await db.createMessage(user, room, body);
+      let room = await db.rooms.get(this.socketUser.roomId);
+      let message = await db.messages.create(user, room, body);
 
       this.socket.to(room.tag).emit("messageSent", {message: message});
       return {message: message};
@@ -29,15 +29,15 @@ class MessageEventHandler extends SocketEventHandler {
 
     this.listen("editMessage", async (data) => {
       if (!this.socketUser.roomId) throw new Error("Not in a room");
-      let user = await db.getUser(this.socketUser.id);
+      let user = await db.users.get(this.socketUser.id);
 
       let body = this.validateMessageBody(data.body);
-      let room = await db.getRoom(this.socketUser.roomId);
-      let message = await db.getMessage(data.id, room);
+      let room = await db.rooms.get(this.socketUser.roomId);
+      let message = await db.messages.get(data.id, room);
 
       if (message.user_id !== user.id) throw new Error("Insufficient permission");
 
-      await db.updateMessage(message.id, body);
+      await db.messages.update(message.id, body);
 
       message.body = body;
 
@@ -48,10 +48,10 @@ class MessageEventHandler extends SocketEventHandler {
     this.listen("likeMessage", async (data) => {
       if (!this.socketUser.roomId) throw new Error("Not in a room");
 
-      let user = await db.getUser(this.socketUser.id);
+      let user = await db.users.get(this.socketUser.id);
       if (!user.setup) throw new Error("A name and icon is required to like messages");
 
-      let like = await db.likeMessage(data.id, user);
+      let like = await db.messages.like(data.id, user);
 
       this.socket.to(Room.tag(this.socketUser.roomId)).emit("messageLiked", {
         message_id: data.id,
@@ -63,8 +63,8 @@ class MessageEventHandler extends SocketEventHandler {
 
     this.listen("unlikeMessage", async (data) => {
       if (!this.socketUser.roomId) throw new Error("Not in a room");
-      let user = await db.getUser(this.socketUser.id);
-      if (!await db.unlikeMessage(data.id, user)) throw new Error("Failed to unlike message");
+      let user = await db.users.get(this.socketUser.id);
+      if (!await db.messages.unlike(data.id, user)) throw new Error("Failed to unlike message");
 
       this.socket.to(Room.tag(this.socketUser.roomId)).emit("messageUnliked", {
         message_id: data.id,
@@ -77,11 +77,11 @@ class MessageEventHandler extends SocketEventHandler {
     this.listen("deleteMessage", async (data) => {
       if (!this.socketUser.roomId) throw new Error("Not in a room");
 
-      let room = await db.getRoom(this.socketUser.roomId);
-      let message = await db.getMessage(data.id, room);
+      let room = await db.rooms.get(this.socketUser.roomId);
+      let message = await db.messages.get(data.id, room);
 
       if (message.user_id !== this.socketUser.id) throw new Error("Insufficient permission");
-      let unchainMessage = await db.deleteMessage(message, room);
+      let unchainMessage = await db.messages.delete(message, room);
       let unchainMessageId = unchainMessage ? unchainMessage.id : undefined;
 
       this.socket.to(room.tag).emit("messageDeleted", {
