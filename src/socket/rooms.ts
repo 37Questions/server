@@ -50,26 +50,25 @@ class RoomEventHandler extends SocketEventHandler {
     if (!room.users) throw new Error("Corrupt Room (No users found)");
     if (room.visibility !== RoomVisibility.Public && room.token !== token) throw new Error("Invalid Token");
 
-    let message, shouldCreateMessage;
+    let shouldCreateMessage = !!(user.name && user.icon);
 
     if (room.users.hasOwnProperty(this.socketUser.id)) {
       this.socket.to(Room.tag(roomId, this.socketUser.id)).emit("forceLogout");
       await db.setRoomUserActive(this.socketUser.id, roomId, true);
       user.score = room.users[this.socketUser.id].score;
-      shouldCreateMessage = !room.users[this.socketUser.id].active;
+      shouldCreateMessage = shouldCreateMessage && !room.users[this.socketUser.id].active;
     } else {
       await db.addUserToRoom(user.id, room.id);
       user.score = 0;
-      shouldCreateMessage = !!(user.name && user.icon);
     }
 
     user.active = true;
     room.users[user.id] = user;
 
-    if (shouldCreateMessage) {
-      message = await db.createMessage(user, room, "Joined the room", true);
-      room.messages[message.id] = message;
-    }
+    if (!shouldCreateMessage) return new RoomJoinInfo(room);
+
+    let message = await db.createMessage(user, room, "Joined the room", true);
+    room.messages[message.id] = message;
 
     return new RoomJoinInfo(room, message);
   }

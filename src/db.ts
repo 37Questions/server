@@ -263,6 +263,8 @@ class Database {
   }
 
   async createMessage(user: User, room: Room, body: string, isSystemMsg = false): Promise<Message> {
+    if (!user.setup) throw new Error("A name and icon is required to create messages");
+
     if (body.length < Message.MIN_LENGTH) throw new Error(`Messages must be at least ${Message.MIN_LENGTH} character(s) long`);
     if (body.length > Message.MAX_LENGTH) throw new Error(`Messages cannot be longer than ${Message.MAX_LENGTH} characters`);
 

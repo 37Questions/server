@@ -14,8 +14,10 @@ class MessageEventHandler extends SocketEventHandler {
 
   registerMessageEvents() {
     this.listen("sendMessage", async (data) => {
-      let user = await db.getUser(this.socketUser.id);
       if (!this.socketUser.roomId) throw new Error("Not in a room");
+
+      let user = await db.getUser(this.socketUser.id);
+      if (!user.setup) throw new Error("A name and icon is required to send messages");
 
       let body = this.validateMessageBody(data.body);
       let room = await db.getRoom(this.socketUser.roomId);
@@ -45,7 +47,10 @@ class MessageEventHandler extends SocketEventHandler {
 
     this.listen("likeMessage", async (data) => {
       if (!this.socketUser.roomId) throw new Error("Not in a room");
+
       let user = await db.getUser(this.socketUser.id);
+      if (!user.setup) throw new Error("A name and icon is required to like messages");
+
       let like = await db.likeMessage(data.id, user);
 
       this.socket.to(Room.tag(this.socketUser.roomId)).emit("messageLiked", {

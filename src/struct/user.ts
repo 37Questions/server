@@ -36,6 +36,10 @@ class User {
   get tag() {
     return User.tag(this.id);
   }
+
+  get setup() {
+    return this.name && this.icon;
+  }
 }
 
 class Icon {
