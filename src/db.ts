@@ -371,6 +371,32 @@ class Database {
 
     return res.affectedRows > 0;
   }
+
+  async deleteMessage(message: Message, room: Room): Promise<Message | undefined> {
+    let res = await query(`DELETE from messages WHERE id = ?`, [message.id]);
+
+    if (res.affectedRows < 1) throw new Error("Failed to delete message");
+    if (message.isChained || message.isSystemMsg) return;
+
+    let nextMessage = await query(`
+      SELECT id, user_id, type, body FROM messages WHERE id > ? AND room_id = ?
+      ORDER BY id ASC LIMIT 1
+    `, [message.id, room.id]);
+
+    if (nextMessage.length < 1) return;
+    let msg = new Message(nextMessage[0]);
+
+    if (msg.user_id !== message.user_id || !msg.isChained || msg.isSystemMsg) return;
+
+    await query(`
+      UPDATE messages SET type = ? WHERE id = ?
+    `, [MessageType.Normal, msg.id]);
+
+    console.info(`Unchained message #${msg.id}`);
+
+    msg.isChained = false;
+    return msg;
+  }
 }
 
 const db = new Database();

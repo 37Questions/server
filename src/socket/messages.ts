@@ -67,7 +67,25 @@ class MessageEventHandler extends SocketEventHandler {
       });
 
       return {success: true};
-    })
+    });
+
+    this.listen("deleteMessage", async (data) => {
+      if (!this.socketUser.roomId) throw new Error("Not in a room");
+
+      let room = await db.getRoom(this.socketUser.roomId);
+      let message = await db.getMessage(data.id, room);
+
+      if (message.user_id !== this.socketUser.id) throw new Error("Insufficient permission");
+      let unchainMessage = await db.deleteMessage(message, room);
+      let unchainMessageId = unchainMessage ? unchainMessage.id : undefined;
+
+      this.socket.to(room.tag).emit("messageDeleted", {
+        message_id: message.id,
+        unchain_message_id: unchainMessageId
+      });
+
+      return {unchain_message_id: unchainMessageId};
+    });
   }
 }
 
