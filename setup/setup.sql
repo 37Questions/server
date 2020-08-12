@@ -17,6 +17,7 @@ CREATE TABLE `questions` (
 
 CREATE TABLE `rooms` (
   id INT NOT NULL AUTO_INCREMENT,
+  name VARCHAR(32),
   lastActive INT UNSIGNED NOT NULL,
   visibility ENUM("private", "public") DEFAULT "public",
   votingMethod ENUM("rotate", "democratic") DEFAULT "rotate",

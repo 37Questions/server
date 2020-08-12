@@ -90,10 +90,11 @@ class RoomEventHandler extends SocketEventHandler {
 
   registerRoomEvents() {
     this.listen("createRoom", async (data) => {
+      let name = data.name;
       let visibility = data.visibility;
       let votingMethod = data.votingMethod;
 
-      let room = await db.rooms.create(this.socketUser.id, visibility, votingMethod);
+      let room = await db.rooms.create(this.socketUser.id, name, visibility, votingMethod);
       return this.joinSocketRoom(new RoomJoinInfo(room)).then((room) => {
         console.info(`Created room #${room.id}`);
         return {room: room};

@@ -6,25 +6,34 @@ class RoomVisibility {
   static Public = "public";
 }
 
-class Room {
-  static VisibilityOptions = ["private", "public"];
-  static VotingMethods = ["rotate", "democratic"];
+class BaseRoom {
 
   id: number;
+  name: string;
   lastActive: number;
   visibility: string;
   votingMethod: string;
-  token: string;
+  token?: string;
+
+  constructor(room: BaseRoom) {
+    this.id = room.id;
+    this.name = room.name || ("Room #" + room.id);
+    this.lastActive = room.lastActive;
+    this.visibility = room.visibility;
+    this.votingMethod = room.votingMethod;
+    this.token = room.token;
+  }
+}
+
+class Room extends BaseRoom {
+  static VisibilityOptions = ["private", "public"];
+  static VotingMethods = ["rotate", "democratic"];
 
   users: Record<number, User>;
   messages: Record<number, Message>;
 
   constructor(room: Room) {
-    this.id = room.id;
-    this.lastActive = room.lastActive;
-    this.visibility = room.visibility;
-    this.votingMethod = room.votingMethod;
-    this.token = room.token;
+    super(room);
     this.users = room.users || {};
     this.messages = room.messages || {};
   }
@@ -39,4 +48,16 @@ class Room {
   }
 }
 
-export {Room, RoomVisibility};
+class RoomInfo extends BaseRoom {
+  players: number;
+  activePlayers: number;
+
+  constructor(info: RoomInfo) {
+    super(info);
+
+    this.players = info.players;
+    this.activePlayers = info.activePlayers;
+  }
+}
+
+export {Room, RoomInfo, RoomVisibility};

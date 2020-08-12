@@ -1,4 +1,4 @@
-import {Room, RoomVisibility} from "../struct/room";
+import {Room, RoomInfo, RoomVisibility} from "../struct/room";
 import {Constants, Util, Validation} from "../helpers";
 import pool from "./pool";
 import {User} from "../struct/user";
@@ -6,25 +6,28 @@ import {Message, MessageLike} from "../struct/message";
 import db from "./db";
 
 class RoomDBHandler {
-  static async create(userId: number, visibility: string, votingMethod: string): Promise<Room> {
+  static async create(userId: number, name: string | undefined, visibility: string, votingMethod: string): Promise<Room> {
     if (!Validation.uint(userId)) throw new Error("Invalid User");
     let user = await db.users.get(userId);
 
     if (!Room.VisibilityOptions.includes(visibility)) throw new Error("Invalid Visibility Setting");
     if (!Room.VotingMethods.includes(votingMethod)) throw new Error("Invalid Voting Method");
 
+    let isPublic = visibility === RoomVisibility.Public;
+
     let timestamp = Util.unixTimestamp();
-    let token = Util.makeHash(Constants.TokenLength);
+    let token = isPublic ? undefined : Util.makeHash(Constants.TokenLength);
+
+    let props = [];
+    if (name) props.push(name);
+
+    props.push(timestamp, visibility, votingMethod);
+    if (!isPublic) props.push(token);
 
     let res = await pool.query(`
-      INSERT INTO rooms (lastActive, visibility, votingMethod, token)
-      VALUES (?, ?, ?, ?)
-    `, [
-      timestamp,
-      visibility,
-      votingMethod,
-      token
-    ]);
+      INSERT INTO rooms (${name ? "name, " : ""}lastActive, visibility, votingMethod${isPublic ? "" : ", token"})
+      VALUES (${name ? "?, " : ""}?, ?, ?${isPublic ? "" : ", ?"})
+    `, props);
 
     let roomId = res.insertId;
 
@@ -34,6 +37,7 @@ class RoomDBHandler {
 
       let room = new Room({
         id: roomId,
+        name: name,
         lastActive: timestamp,
         visibility: visibility,
         votingMethod: votingMethod,
@@ -44,7 +48,7 @@ class RoomDBHandler {
       } as Room);
 
       return db.messages.create(user, room, "Created the room", true).then((message) => {
-        room.messages = { [message.id]: message };
+        room.messages = {[message.id]: message};
         return room;
       }).catch((error) => {
         console.warn(`Failed to create initial message for room #${room.id}:`, error.message);
@@ -126,18 +130,51 @@ class RoomDBHandler {
     return room;
   }
 
-  static async getList(): Promise<Room[]> {
+  static async getList(): Promise<RoomInfo[]> {
     let res = await pool.query(`
       SELECT * FROM rooms WHERE visibility = ?
-      ORDER BY lastActive DESC
       LIMIT 15
     `, [RoomVisibility.Public]);
 
-    let rooms = [];
+    let rooms: RoomInfo[] = [];
 
     for (let i = 0; i < res.length; i++) {
-      rooms.push(new Room(res[i]));
+      let row = res[i];
+
+      let users = await pool.query(`
+        SELECT active FROM roomUsers WHERE roomId = ?
+      `, [row.id]);
+
+      let activeUsers = 0;
+      users.forEach((user: any) => {
+        if (user.active) activeUsers++;
+      });
+
+      let lastMessage = await pool.query(`
+        SELECT createdAt, body FROM messages WHERE roomId = ? ORDER BY id DESC LIMIT 1
+      `, [row.id]);
+
+      let lastActive = row.lastActive;
+
+      if (lastMessage.length > 0) {
+        let lastMessageAt = lastMessage[0].createdAt;
+        if (lastMessageAt > lastActive) lastActive = lastMessageAt;
+      }
+
+      rooms.push(new RoomInfo({
+        id: row.id,
+        name: row.name,
+        lastActive: lastActive,
+        visibility: RoomVisibility.Public,
+        votingMethod: row.votingMethod,
+        players:  users.length,
+        activePlayers: activeUsers
+      }));
     }
+
+    rooms.sort((a, b) => {
+      return b.lastActive - a.lastActive;
+    });
 
     return rooms;
   }
