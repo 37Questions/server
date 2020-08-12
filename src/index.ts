@@ -5,8 +5,11 @@ import db from "./db/db";
 import {User} from "./struct/user";
 import {setupRoutes} from "./routes";
 import {onConnection} from "./socket/socket";
+import awsHelper from "./aws/helper";
+import secrets from "./aws/secrets";
 
-const CLIENT_URL = process.env.CLIENT_URL || "http://questions.ddns.net:3001";
+const REDIS_CREDENTIALS_SECRET = "prod/37questions/redis";
+const CLIENT_URL = process.env.CLIENT_URL || "https://37questions.com";
 const PORT = process.env.PORT || 3000;
 
 const app: express.Application = express();
@@ -17,12 +20,21 @@ app.use(express.json());
 const http = require("http").createServer(app);
 const io = sio(http, {origins: CLIENT_URL});
 
-if (process.env.REDIS_HOST) {
-  io.adapter(redis({
-    host: process.env.REDIS_HOST,
-    port: parseInt(process.env.REDIS_PORT as string) || 6379,
-    auth_pass: process.env.REDIS_PASS
-  }));
+if (awsHelper.isConnected || process.env.REDIS_HOST) {
+  secrets.getJson(REDIS_CREDENTIALS_SECRET).then((credentials) => {
+    console.info("Redis:", credentials);
+    io.adapter(redis({
+      host: credentials.host,
+      port: credentials.port,
+      auth_pass: credentials.password
+    }));
+  }).catch((err) => {
+    io.adapter(redis({
+      host: process.env.REDIS_HOST,
+      port: parseInt(process.env.REDIS_PORT as string) || 6379,
+      auth_pass: process.env.REDIS_PASS
+    }));
+  });
 } else {
   console.warn("Redis connection info missing - proceeding in fallback mode");
 }
