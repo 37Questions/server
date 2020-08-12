@@ -5,11 +5,11 @@ class MessageType {
 }
 
 class MessageLike {
-  user_id: number;
+  userId: number;
   since: number;
 
-  constructor(like: any) {
-    this.user_id = like.user_id;
+  constructor(like: MessageLike) {
+    this.userId = like.userId;
     this.since = like.since;
   }
 }
@@ -19,8 +19,8 @@ class Message {
   static MAX_LENGTH = 200;
 
   id: number;
-  created_at: number;
-  user_id: number;
+  createdAt: number;
+  userId: number;
   body: string;
 
   isSystemMsg: boolean;
@@ -30,8 +30,8 @@ class Message {
 
   constructor(message: any) {
     this.id = message.id;
-    this.created_at = message.created_at;
-    this.user_id = message.user_id;
+    this.createdAt = message.createdAt;
+    this.userId = message.userId;
     this.body = message.body;
     this.isSystemMsg = message.type === "system";
     this.isChained = message.type === "chained";

@@ -13,12 +13,14 @@ class RoomDBHandler {
     if (!Room.VisibilityOptions.includes(visibility)) throw new Error("Invalid Visibility Setting");
     if (!Room.VotingMethods.includes(votingMethod)) throw new Error("Invalid Voting Method");
 
+    let timestamp = Util.unixTimestamp();
     let token = Util.makeHash(Constants.TokenLength);
 
     let res = await pool.query(`
-      INSERT INTO rooms (visibility, votingMethod, token)
-      VALUES (?, ?, ?)
+      INSERT INTO rooms (lastActive, visibility, votingMethod, token)
+      VALUES (?, ?, ?, ?)
     `, [
+      timestamp,
       visibility,
       votingMethod,
       token
@@ -32,6 +34,7 @@ class RoomDBHandler {
 
       let room = new Room({
         id: roomId,
+        lastActive: timestamp,
         visibility: visibility,
         votingMethod: votingMethod,
         token: token,
@@ -64,8 +67,8 @@ class RoomDBHandler {
     if (withUsers) {
       let users = await pool.query(`
         SELECT * FROM roomUsers
-        INNER JOIN users ON roomUsers.user_id = users.id
-        WHERE roomUsers.room_id = ?
+        INNER JOIN users ON roomUsers.userId = users.id
+        WHERE roomUsers.roomId = ?
       `, [room.id]);
 
       room.users = {};
@@ -79,15 +82,15 @@ class RoomDBHandler {
     if (withMessages) {
       let messages = await pool.query(`
         SELECT 
-          msg.id, msg.created_at, msg.user_id, 
+          msg.id, msg.createdAt, msg.userId, 
           msg.body, msg.type, 
           GROUP_CONCAT(
-            DISTINCT CONCAT(likes.user_id, ':', likes.since) 
+            DISTINCT CONCAT(likes.userId, ':', likes.since) 
             SEPARATOR ','
           ) AS likes
         FROM messages msg
-        LEFT JOIN messageLikes likes ON msg.id = likes.message_id
-        WHERE msg.room_id = ?
+        LEFT JOIN messageLikes likes ON msg.id = likes.messageId
+        WHERE msg.roomId = ?
         GROUP BY msg.id
         ORDER BY msg.id DESC
         LIMIT 50
@@ -103,15 +106,15 @@ class RoomDBHandler {
           for (let like = 0; like < likesData.length; like++) {
             let likeData = likesData[like].split(":");
             likes[likeData[0]] = new MessageLike({
-              user_id: likeData[0],
+              userId: likeData[0],
               since: likeData[1]
             });
           }
         }
         room.messages[row.id] = new Message({
           id: row.id,
-          created_at: row.created_at,
-          user_id: row.user_id,
+          createdAt: row.createdAt,
+          userId: row.userId,
           body: row.body,
           type: row.type,
           likes: likes
@@ -126,7 +129,7 @@ class RoomDBHandler {
   static async getList(): Promise<Room[]> {
     let res = await pool.query(`
       SELECT * FROM rooms WHERE visibility = ?
-      ORDER BY last_active DESC
+      ORDER BY lastActive DESC
       LIMIT 15
     `, [RoomVisibility.Public]);
 
@@ -145,8 +148,8 @@ class RoomDBHandler {
 
     let res = await pool.query(`
       SELECT * FROM roomUsers
-      INNER JOIN users ON roomUsers.user_id = users.id
-      WHERE roomUsers.user_id = ? AND roomUsers.room_id = ?
+      INNER JOIN users ON roomUsers.userId = users.id
+      WHERE roomUsers.userId = ? AND roomUsers.roomId = ?
     `, [id, roomId]);
 
     if (res.length < 1) throw new Error("Invalid Room or User");
@@ -158,7 +161,7 @@ class RoomDBHandler {
     roomId = Util.parseId(roomId);
 
     let res = await pool.query(`
-      UPDATE roomUsers SET active = ? WHERE user_id = ? AND room_id = ?
+      UPDATE roomUsers SET active = ? WHERE userId = ? AND roomId = ?
     `, [active, userId, roomId]);
     return res.affectedRows > 0;
   }
@@ -167,20 +170,20 @@ class RoomDBHandler {
     userId = Util.parseId(userId);
 
     let rooms = await pool.query(`
-      SELECT room_id from roomUsers where user_id = ? AND active = true
+      SELECT roomId from roomUsers where userId = ? AND active = true
     `, [userId]);
 
     let roomIds: number[] = [];
 
     for (let room = 0; room < rooms.length; room++) {
-      roomIds.push(rooms[room].room_id);
+      roomIds.push(rooms[room].roomId);
     }
 
     return roomIds;
   }
 
   static async addUser(userId: number, roomId: number) {
-    return pool.query(`INSERT INTO roomUsers (user_id, room_id) VALUES (?, ?)`, [userId, roomId]);
+    return pool.query(`INSERT INTO roomUsers (userId, roomId) VALUES (?, ?)`, [userId, roomId]);
   }
 }
 

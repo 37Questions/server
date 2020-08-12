@@ -35,7 +35,7 @@ class MessageEventHandler extends SocketEventHandler {
       let room = await db.rooms.get(this.socketUser.roomId);
       let message = await db.messages.get(data.id, room);
 
-      if (message.user_id !== user.id) throw new Error("Insufficient permission");
+      if (message.userId !== user.id) throw new Error("Insufficient permission");
 
       await db.messages.update(message.id, body);
 
@@ -54,7 +54,7 @@ class MessageEventHandler extends SocketEventHandler {
       let like = await db.messages.like(data.id, user);
 
       this.socket.to(Room.tag(this.socketUser.roomId)).emit("messageLiked", {
-        message_id: data.id,
+        messageId: data.id,
         like: like
       });
 
@@ -67,8 +67,8 @@ class MessageEventHandler extends SocketEventHandler {
       if (!await db.messages.unlike(data.id, user)) throw new Error("Failed to unlike message");
 
       this.socket.to(Room.tag(this.socketUser.roomId)).emit("messageUnliked", {
-        message_id: data.id,
-        user_id: user.id
+        messageId: data.id,
+        userId: user.id
       });
 
       return {success: true};
@@ -80,16 +80,16 @@ class MessageEventHandler extends SocketEventHandler {
       let room = await db.rooms.get(this.socketUser.roomId);
       let message = await db.messages.get(data.id, room);
 
-      if (message.user_id !== this.socketUser.id) throw new Error("Insufficient permission");
+      if (message.userId !== this.socketUser.id) throw new Error("Insufficient permission");
       let unchainMessage = await db.messages.delete(message, room);
       let unchainMessageId = unchainMessage ? unchainMessage.id : undefined;
 
       this.socket.to(room.tag).emit("messageDeleted", {
-        message_id: message.id,
-        unchain_message_id: unchainMessageId
+        messageId: message.id,
+        unchainMessageId: unchainMessageId
       });
 
-      return {unchain_message_id: unchainMessageId};
+      return {unchainMessageId: unchainMessageId};
     });
   }
 }

@@ -16,27 +16,27 @@ class MessageDBHandler {
 
     if (!isSystemMsg) {
       let lastMessage = await pool.query(`
-        SELECT user_id, body, type 
-        FROM messages WHERE room_id = ? 
+        SELECT userId, body, type 
+        FROM messages WHERE roomId = ? 
         ORDER BY id DESC LIMIT 1
       `, [room.id]);
 
       if (lastMessage.length > 0) {
         let msg = lastMessage[0];
-        if (msg.user_id === user.id && msg.type !== MessageType.System) {
+        if (msg.userId === user.id && msg.type !== MessageType.System) {
           type = MessageType.Chained;
         }
       }
     }
 
     let res = await pool.query(`
-      INSERT INTO messages (created_at, user_id, room_id, body, type) VALUES (?, ?, ?, ?, ?)
+      INSERT INTO messages (createdAt, userId, roomId, body, type) VALUES (?, ?, ?, ?, ?)
     `, [timestamp, user.id, room.id, body, type]);
 
     return new Message({
       id: res.insertId,
-      created_at: timestamp,
-      user_id: user.id,
+      createdAt: timestamp,
+      userId: user.id,
       body: body,
       type: type
     });
@@ -46,7 +46,7 @@ class MessageDBHandler {
     id = Util.parseId(id);
 
     let res = await pool.query(`
-      SELECT * FROM messages WHERE id = ? AND room_id = ?
+      SELECT * FROM messages WHERE id = ? AND roomId = ?
     `, [id, room.id]);
 
     if (res.length < 1) throw new Error("Invalid Message");
@@ -61,14 +61,14 @@ class MessageDBHandler {
     id = Util.parseId(id);
 
     let res = await pool.query(`
-      SELECT user_id, since FROM messageLikes WHERE message_id = ?
+      SELECT userId, since FROM messageLikes WHERE messageId = ?
     `, [id]);
 
     let likes: Record<number, MessageLike> = {};
 
     for (let i = 0; i < res.length; i++) {
       let like = new MessageLike(res[i]);
-      likes[like.user_id] = like;
+      likes[like.userId] = like;
     }
 
     return likes;
@@ -89,18 +89,18 @@ class MessageDBHandler {
 
     let existing = await pool.query(`
       SELECT since FROM messageLikes
-      WHERE message_id = ? AND user_id = ?
+      WHERE messageId = ? AND userId = ?
    `, [id, user.id]);
     if (existing.length > 0) throw new Error("Message was already liked");
 
     let timestamp = Util.unixTimestamp();
     await pool.query(`
-      INSERT INTO messageLikes (message_id, user_id, since)
+      INSERT INTO messageLikes (messageId, userId, since)
       VALUES (?, ?, ?)
     `, [id, user.id, timestamp]);
 
     return new MessageLike({
-      user_id: user.id,
+      userId: user.id,
       since: timestamp
     });
   }
@@ -110,7 +110,7 @@ class MessageDBHandler {
 
     let res = await pool.query(`
       DELETE FROM messageLikes
-      WHERE message_id = ? AND user_id = ?
+      WHERE messageId = ? AND userId = ?
     `, [id, user.id]);
 
     return res.affectedRows > 0;
@@ -123,14 +123,14 @@ class MessageDBHandler {
     if (message.isChained || message.isSystemMsg) return;
 
     let nextMessage = await pool.query(`
-      SELECT id, user_id, type, body FROM messages WHERE id > ? AND room_id = ?
+      SELECT id, userId, type, body FROM messages WHERE id > ? AND roomId = ?
       ORDER BY id ASC LIMIT 1
     `, [message.id, room.id]);
 
     if (nextMessage.length < 1) return;
     let msg = new Message(nextMessage[0]);
 
-    if (msg.user_id !== message.user_id || !msg.isChained || msg.isSystemMsg) return;
+    if (msg.userId !== message.userId || !msg.isChained || msg.isSystemMsg) return;
 
     await pool.query(`
       UPDATE messages SET type = ? WHERE id = ?

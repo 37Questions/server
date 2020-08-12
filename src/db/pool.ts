@@ -9,7 +9,7 @@ class Pool {
       port: parseInt(process.env.RDS_PORT as string) || 3306,
       user: process.env.RDS_USERNAME || "questions",
       password: process.env.RDS_PASSWORD || "password",
-      database: process.env.RDS_DATABASE || "questions_game"
+      database: process.env.RDS_DATABASE || "questions"
     });
   }
 
