@@ -10,6 +10,7 @@ import secrets from "./aws/secrets";
 
 const REDIS_CREDENTIALS_SECRET = "prod/37questions/redis";
 const CLIENT_URL = process.env.CLIENT_URL || "https://37questions.com";
+const ALLOWED_HEADERS = "Origin, X-Requested-With, X-Forwarded-For,Content-Type, Accept, Host, Upgrade, Connection";
 const PORT = process.env.PORT || 3000;
 
 const app: express.Application = express();
@@ -18,17 +19,17 @@ app.set("port", PORT);
 app.use(express.json());
 
 const http = require("http").createServer(app);
-const io = sio(http, {origins: CLIENT_URL});
+const io = sio(http);
 
 if (awsHelper.isConnected || process.env.REDIS_HOST) {
   secrets.getJson(REDIS_CREDENTIALS_SECRET).then((credentials) => {
-    console.info("Redis:", credentials);
     io.adapter(redis({
       host: credentials.host,
       port: credentials.port,
       auth_pass: credentials.password
     }));
   }).catch((err) => {
+    console.warn("Failed to connect to aws redis server:", err.message);
     io.adapter(redis({
       host: process.env.REDIS_HOST,
       port: parseInt(process.env.REDIS_PORT as string) || 6379,
@@ -41,11 +42,16 @@ if (awsHelper.isConnected || process.env.REDIS_HOST) {
 
 app.use((req, res, next) => {
   res.header("Access-Control-Allow-Origin", CLIENT_URL);
-  res.header("Access-Control-Allow-Headers", "Origin, X-Requested-With, Content-Type, Accept");
+  res.header("Access-Control-Allow-Headers", ALLOWED_HEADERS);
   next();
 });
 
 setupRoutes(app, io);
+
+io.origins((origin, callback) => {
+  if (origin !== CLIENT_URL) return callback("Invalid origin", false);
+  callback(null, true);
+});
 
 io.use((socket, next) => {
   db.users.validate(new User(socket.handshake.query, true)).then((valid) => {
