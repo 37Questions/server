@@ -9,7 +9,7 @@ import awsHelper from "./aws/helper";
 import secrets from "./aws/secrets";
 
 const REDIS_CREDENTIALS_SECRET = "prod/37questions/redis";
-const CLIENT_URL = process.env.CLIENT_URL || "https://37questions.com";
+const CLIENT_URL = awsHelper.isConnected ? "https://37questions.com" : "http://questions.ddns.net:3001";
 const ALLOWED_HEADERS = "Origin, X-Requested-With, X-Forwarded-For,Content-Type, Accept, Host, Upgrade, Connection";
 const PORT = process.env.PORT || 3000;
 
