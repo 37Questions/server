@@ -21,7 +21,10 @@ class RoomEventHandler extends SocketEventHandler {
     this.socket.leave(Room.tag(this.socketUser.roomId));
     this.socket.leave(Room.tag(this.socketUser.roomId, this.socketUser.id));
 
-    if (this.socketUser.loggedOut) return user;
+    if (this.socketUser.loggedOut) {
+      this.socketUser.roomId = undefined;
+      return user;
+    }
 
     let room = await db.rooms.get(this.socketUser.roomId);
     let message;
@@ -108,6 +111,12 @@ class RoomEventHandler extends SocketEventHandler {
       console.info(`Added user #${this.socketUser.id} to room #${room.id}!`);
       return {room: room};
     });
+
+    this.listen("leaveRoom", async () => {
+      if (!this.socketUser.roomId) throw new Error("Not in a room");
+      await this.leaveCurRoom();
+      return {success: true};
+    })
 
     this.listen("disconnect", async (reason) => {
       await this.leaveCurRoom();
