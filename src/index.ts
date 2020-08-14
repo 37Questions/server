@@ -8,9 +8,9 @@ import {onConnection} from "./socket/socket";
 import awsHelper from "./aws/helper";
 import secrets from "./aws/secrets";
 
-const REDIS_CREDENTIALS_SECRET = "prod/37questions/redis";
-const CLIENT_URL = process.env.CLIENT_URL || "https://37questions.com";
+const CLIENT_URLS = awsHelper.isConnected ? ["https://37questions.com", "https://www.37questions.com"] : ["http://questions.ddns.net:3001", "http://localhost:3001"];
 const ALLOWED_HEADERS = "Origin, X-Requested-With, X-Forwarded-For,Content-Type, Accept, Host, Upgrade, Connection";
+const REDIS_CREDENTIALS_SECRET = "prod/37questions/redis";
 const PORT = process.env.PORT || 3000;
 
 const app: express.Application = express();
@@ -41,7 +41,10 @@ if (awsHelper.isConnected || process.env.REDIS_HOST) {
 }
 
 app.use((req, res, next) => {
-  res.header("Access-Control-Allow-Origin", CLIENT_URL);
+  let origin = req.headers.origin;
+  if (origin && CLIENT_URLS.includes(origin)) {
+    res.header("Access-Control-Allow-Origin", origin);
+  }
   res.header("Access-Control-Allow-Headers", ALLOWED_HEADERS);
   next();
 });
@@ -49,7 +52,7 @@ app.use((req, res, next) => {
 setupRoutes(app, io);
 
 io.origins((origin, callback) => {
-  if (origin !== CLIENT_URL) return callback("Invalid origin", false);
+  if (!CLIENT_URLS.includes(origin)) return callback("Invalid origin", false);
   callback(null, true);
 });
 
