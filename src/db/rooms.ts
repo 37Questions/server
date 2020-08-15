@@ -1,7 +1,7 @@
-import {Room, RoomInfo, RoomVisibility} from "../struct/room";
+import {Room, RoomInfo, RoomState, RoomVisibility} from "../struct/room";
 import {Constants, Util, Validation} from "../helpers";
 import pool from "./pool";
-import {User} from "../struct/user";
+import {User, UserState} from "../struct/user";
 import {Message, MessageLike} from "../struct/message";
 import db from "./db";
 
@@ -31,8 +31,9 @@ class RoomDBHandler {
 
     let roomId = res.insertId;
 
-    return this.addUser(userId, roomId).then(() => {
+    return this.addUser(userId, roomId, UserState.SELECTING_QUESTION).then(() => {
       user.active = true;
+      user.state = UserState.SELECTING_QUESTION;
       user.score = 0;
 
       let room = new Room({
@@ -42,6 +43,7 @@ class RoomDBHandler {
         visibility: visibility,
         votingMethod: votingMethod,
         token: token,
+        state: RoomState.PICKING_QUESTION,
         users: {
           [user.id]: user
         }
@@ -126,7 +128,6 @@ class RoomDBHandler {
         if (msg === messages.length - 1) room.messages[row.id].isChained = false;
       }
     }
-
     return room;
   }
 
@@ -193,13 +194,15 @@ class RoomDBHandler {
     return new User(res[0], withToken);
   }
 
-  static async setUserActive(userId: number | string, roomId: number | string, active: boolean): Promise<boolean> {
+  static async setUserActive(userId: number | string, roomId: number | string, active: boolean, state = UserState.IDLE): Promise<boolean> {
     userId = Util.parseId(userId);
     roomId = Util.parseId(roomId);
 
     let res = await pool.query(`
-      UPDATE roomUsers SET active = ? WHERE userId = ? AND roomId = ?
-    `, [active, userId, roomId]);
+      UPDATE roomUsers 
+      SET active = ?, state = ? 
+      WHERE userId = ? AND roomId = ?
+    `, [active, state, userId, roomId]);
     return res.affectedRows > 0;
   }
 
@@ -219,8 +222,10 @@ class RoomDBHandler {
     return roomIds;
   }
 
-  static async addUser(userId: number, roomId: number) {
-    return pool.query(`INSERT INTO roomUsers (userId, roomId) VALUES (?, ?)`, [userId, roomId]);
+  static async addUser(userId: number, roomId: number, state = UserState.IDLE) {
+    return pool.query(`
+      INSERT INTO roomUsers (userId, roomId, state) VALUES (?, ?, ?)
+    `, [userId, roomId, state]);
   }
 }
 

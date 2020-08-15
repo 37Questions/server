@@ -1,5 +1,13 @@
 import {Constants, Validation} from "../helpers";
 
+enum UserState {
+  IDLE = "idle",
+  SELECTING_QUESTION = "selecting_question",
+  ASKING_QUESTION = "asking_question",
+  ANSWERING_QUESTION = "answering_question",
+  READING_ANSWERS = "reading_answers"
+}
+
 class User {
   static MIN_NAME_LENGTH = 3;
   static MAX_NAME_LENGTH = 12;
@@ -12,6 +20,7 @@ class User {
   // Per-Room data
   active?: boolean;
   score?: number;
+  state?: UserState;
 
   constructor(user: any, withToken = false) {
     this.id = parseInt(user.id);
@@ -27,6 +36,7 @@ class User {
 
     this.active = !!user.active;
     this.score = user.score;
+    this.state = user.state;
   }
 
   static tag(id: number | string) {
@@ -62,4 +72,4 @@ class Icon {
   }
 }
 
-export {User, Icon};
+export {User, Icon, UserState};

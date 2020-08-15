@@ -1,7 +1,8 @@
 import {SocketEventHandler} from "./helpers";
 import db from "../db/db";
-import {Room, RoomVisibility} from "../struct/room";
+import {Room, RoomState, RoomVisibility} from "../struct/room";
 import {Message} from "../struct/message";
+import {UserState} from "../struct/user";
 
 class RoomJoinInfo {
   room: Room;
@@ -55,10 +56,34 @@ class RoomEventHandler extends SocketEventHandler {
 
     let shouldCreateMessage = !!(user.name && user.icon);
 
+    let activeUsers = 0;
+    room.forEachUser((user) => {
+      if (user.active && user.setup) activeUsers++;
+    })
+
+    user.state = UserState.IDLE;
+
+    if (activeUsers < 1) {
+      if (room.state === RoomState.PICKING_QUESTION) {
+        user.state = UserState.SELECTING_QUESTION;
+        room.questions = await db.questions.getSelectionOptions(room);
+      }
+    }
+
     if (room.users.hasOwnProperty(this.socketUser.id)) {
       this.socket.to(Room.tag(roomId, this.socketUser.id)).emit("forceLogout");
-      await db.rooms.setUserActive(this.socketUser.id, roomId, true);
-      user.score = room.users[this.socketUser.id].score;
+      let existingUser = room.users[this.socketUser.id];
+      if (existingUser.active) {
+        user.state = existingUser.state;
+        if (user.state === UserState.SELECTING_QUESTION) {
+          room.questions = await db.questions.getSelectionOptions(room);
+        }
+      } else {
+        await db.rooms.setUserActive(this.socketUser.id, roomId, true, user.state);
+      }
+
+      user.score = existingUser.score;
+
       shouldCreateMessage = shouldCreateMessage && !room.users[this.socketUser.id].active;
     } else {
       await db.rooms.addUser(user.id, room.id);
@@ -98,6 +123,7 @@ class RoomEventHandler extends SocketEventHandler {
       let votingMethod = data.votingMethod;
 
       let room = await db.rooms.create(this.socketUser.id, name, visibility, votingMethod);
+      room.questions = await db.questions.getSelectionOptions(room);
       return this.joinSocketRoom(new RoomJoinInfo(room)).then((room) => {
         console.info(`Created room #${room.id}`);
         return {room: room};

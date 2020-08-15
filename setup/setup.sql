@@ -22,7 +22,17 @@ CREATE TABLE `rooms` (
   visibility ENUM("private", "public") DEFAULT "public",
   votingMethod ENUM("rotate", "democratic") DEFAULT "rotate",
   token VARCHAR(8),
+  state ENUM("picking_question", "collecting_answers", "reading_answers") DEFAULT "picking_question",
   PRIMARY KEY (id)
+);
+
+CREATE TABLE `roomQuestions` (
+  room_id INT NOT NULL,
+  question_id INT NOT NULL,
+  state ENUM("selection_option", "selected", "played") DEFAULT "selection_option",
+  PRIMARY KEY (room_id, question_id),
+  FOREIGN KEY (room_id) REFERENCES rooms(id) ON DELETE CASCADE,
+  FOREIGN KEY (question_id) REFERENCES questions(id) ON DELETE CASCADE
 );
 
 CREATE TABLE `users` (
@@ -40,6 +50,7 @@ CREATE TABLE `roomUsers` (
   roomId INT NOT NULL,
   active BOOLEAN DEFAULT TRUE,
   score INT NOT NULL DEFAULT 0,
+  state ENUM("idle", "selecting_question", "asking_question", "answering_question", "reading_answers") DEFAULT "idle",
   PRIMARY KEY (userId, roomId),
   FOREIGN KEY (userId) REFERENCES users(id) ON DELETE CASCADE,
   FOREIGN KEY (roomId) REFERENCES rooms(id) ON DELETE CASCADE
