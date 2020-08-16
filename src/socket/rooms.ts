@@ -3,6 +3,7 @@ import db from "../db/db";
 import {Room, RoomState, RoomVisibility} from "../struct/room";
 import {Message} from "../struct/message";
 import {UserState} from "../struct/user";
+import {Util} from "../helpers";
 
 class RoomJoinInfo {
   room: Room;
@@ -27,16 +28,43 @@ class RoomEventHandler extends SocketEventHandler {
       return user;
     }
 
-    let room = await db.rooms.get(this.socketUser.roomId);
-    let message;
+    let room = await db.rooms.get(this.socketUser.roomId, true);
+    let roomUser = room.users[user.id];
+    let message, additionalUpdate;
 
-    if (user.name && user.icon) {
-      message = await db.messages.create(user, room, "Left the room", true);
+    if (roomUser && roomUser.name && roomUser.icon) {
+      let messageBody = "Left the room";
+
+      if (room.state === RoomState.PICKING_QUESTION && roomUser.state === UserState.SELECTING_QUESTION) {
+        let activeUsers = room.getActiveUsers(roomUser.id);
+
+        if (activeUsers.length > 0) {
+          let selectedUser = activeUsers[Util.getRandomInt(0, activeUsers.length - 1)];
+          let questions = await db.questions.getSelectionOptions(room);
+          await db.rooms.setUserState(selectedUser.id, room.id, UserState.SELECTING_QUESTION);
+          messageBody = `Left the room, leaving ${selectedUser.name} to pick a new question`;
+
+          additionalUpdate = {
+            event: "userStateChanged",
+            data: {
+              id: selectedUser.id,
+              state: UserState.SELECTING_QUESTION
+            }
+          };
+
+          this.socket.to(Room.tag(room.id, selectedUser.id)).emit("newQuestionsList", {
+            questions: questions
+          });
+        }
+      }
+
+      message = await db.messages.create(roomUser, room, messageBody, true);
     }
 
     this.socket.to(room.tag).emit("userLeft", {
       id: this.socketUser.id,
-      message: message
+      message: message,
+      additionalUpdate: additionalUpdate
     });
 
     await db.rooms.setUserActive(this.socketUser.id, room.id, false).then(() => {
@@ -55,15 +83,11 @@ class RoomEventHandler extends SocketEventHandler {
     if (room.visibility !== RoomVisibility.Public && room.token !== token) throw new Error("Invalid Token");
 
     let shouldCreateMessage = !!(user.name && user.icon);
-
-    let activeUsers = 0;
-    room.forEachUser((user) => {
-      if (user.active && user.setup) activeUsers++;
-    })
+    let activeUsers = room.getActiveUsers();
 
     user.state = UserState.IDLE;
 
-    if (activeUsers < 1) {
+    if (user.setup && activeUsers.length < 1) {
       if (room.state === RoomState.PICKING_QUESTION) {
         user.state = UserState.SELECTING_QUESTION;
         room.questions = await db.questions.getSelectionOptions(room);
@@ -134,7 +158,6 @@ class RoomEventHandler extends SocketEventHandler {
       let info = await this.joinRoom(data.id, data.token);
       let room = await this.joinSocketRoom(info);
 
-      console.info(`Added user #${this.socketUser.id} to room #${room.id}!`);
       return {room: room};
     });
 

@@ -2,7 +2,8 @@ import express = require("express");
 import SocketIO from "socket.io";
 import db from "./db/db";
 import {Constants} from "./helpers";
-import {Icon, User} from "./struct/user";
+import {Icon, User, UserState} from "./struct/user";
+import {Room, RoomState} from "./struct/room";
 
 function setupRoutes(app: express.Application, io: SocketIO.Server) {
   app.get("/status", (req, res) => {
@@ -41,21 +42,40 @@ function setupRoutes(app: express.Application, io: SocketIO.Server) {
       if (roomIds.length === 0) return;
 
       let messageBody = "Joined the room";
+      let newlyJoined = !oldUser.name && !oldUser.icon;
 
-      if (oldUser.name || oldUser.icon) {
+      if (!newlyJoined) {
         if (!oldUser.name) messageBody = "Changed their icon";
         else if (!oldUser.icon) messageBody = `Changed their username from ${oldUser.name}`;
         else messageBody = "Updated their profile";
       }
 
       roomIds.forEach((roomId) => {
-        db.rooms.get(roomId).then(async (room) => {
+        db.rooms.get(roomId, newlyJoined).then(async (room) => {
+          let newState = undefined;
+          if (newlyJoined) {
+            let activeUsers = room.getActiveUsers(user.id);
+            let roomUser = room.users[user.id];
+            if (activeUsers.length == 0) {
+              if (room.state === RoomState.PICKING_QUESTION && roomUser.state !== UserState.SELECTING_QUESTION) {
+                let questions = await db.questions.getSelectionOptions(room);
+                newState = UserState.SELECTING_QUESTION;
+                await db.rooms.setUserState(user.id, room.id, newState);
+
+                io.to(Room.tag(room.id, user.id)).emit("newQuestionsList", {
+                  questions: questions
+                });
+              }
+            }
+          }
+
           let message = await db.messages.create(newUser, room, messageBody, true);
 
           io.to(room.tag).emit("userUpdated", {
             id: newUser.id,
             name: newUser.name,
             icon: newUser.icon,
+            state: newState,
             message: message
           });
         }).catch((error) => {
@@ -70,7 +90,7 @@ function setupRoutes(app: express.Application, io: SocketIO.Server) {
   app.get("/validate-token", (req, res) => {
     let queryUser = new User(req.query, true);
     db.users.validate(queryUser).then((valid) => {
-      res.send({ valid: valid });
+      res.send({valid: valid});
     }).catch((err) => {
       res.send({
         valid: false,
@@ -87,7 +107,7 @@ function setupRoutes(app: express.Application, io: SocketIO.Server) {
       });
     }).catch((err) => {
       console.warn("Failed to create a new user:", err.message);
-      res.send({ error: err.message });
+      res.send({error: err.message});
     });
   });
 

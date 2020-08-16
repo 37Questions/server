@@ -20,7 +20,7 @@ CREATE TABLE `rooms` (
   name VARCHAR(32),
   lastActive INT UNSIGNED NOT NULL,
   visibility ENUM("private", "public") DEFAULT "public",
-  votingMethod ENUM("rotate", "democratic") DEFAULT "rotate",
+  votingMethod ENUM("winner", "rotate", "democratic") DEFAULT "rotate",
   token VARCHAR(8),
   state ENUM("picking_question", "collecting_answers", "reading_answers") DEFAULT "picking_question",
   PRIMARY KEY (id)

@@ -34,7 +34,7 @@ enum RoomState {
 
 class Room extends BaseRoom {
   static VisibilityOptions = ["private", "public"];
-  static VotingMethods = ["rotate", "democratic"];
+  static VotingMethods = ["winner", "rotate", "democratic"];
 
   state: RoomState;
   users: Record<number, User>;
@@ -64,6 +64,16 @@ class Room extends BaseRoom {
     Object.keys(this.users).forEach((userId: string) => {
       fn(this.users[Util.parseId(userId)]);
     });
+  }
+
+  getActiveUsers(exclude?: number): User[] {
+    let activeUsers: User[] = [];
+
+    this.forEachUser((user) => {
+      if (exclude !== user.id && user.active && user.setup) activeUsers.push(user);
+    })
+
+    return activeUsers;
   }
 }
 

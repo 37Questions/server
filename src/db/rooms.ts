@@ -206,6 +206,19 @@ class RoomDBHandler {
     return res.affectedRows > 0;
   }
 
+  static async setUserState(userId: number | string, roomId: number | string, state: UserState): Promise<boolean> {
+    userId = Util.parseId(userId);
+    roomId = Util.parseId(roomId);
+
+    let res = await pool.query(`
+      UPDATE roomUsers
+      SET state = ?
+      WHERE userId = ? AND roomId = ?
+    `, [state, userId, roomId]);
+
+    return res.affectedRows > 0;
+  }
+
   static async getActiveIdsFor(userId: number | string): Promise<number[]> {
     userId = Util.parseId(userId);
 
