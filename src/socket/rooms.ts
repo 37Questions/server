@@ -102,9 +102,11 @@ class RoomEventHandler extends SocketEventHandler {
       if (room.state === RoomState.PICKING_QUESTION && activeUsers.length < 1) {
         user.state = UserState.SELECTING_QUESTION;
         room.questions = await db.questions.getSelectionOptions(room);
-      } else if (room.state === RoomState.COLLECTING_ANSWERS) {
-        user.state = UserState.ANSWERING_QUESTION;
       }
+    }
+
+    if (room.state === RoomState.COLLECTING_ANSWERS) {
+      user.state = UserState.ANSWERING_QUESTION;
     }
 
     if (room.users.hasOwnProperty(this.socketUser.id)) {
@@ -116,6 +118,10 @@ class RoomEventHandler extends SocketEventHandler {
           room.questions = await db.questions.getSelectionOptions(room);
         }
       } else {
+        if (room.state === RoomState.COLLECTING_ANSWERS) {
+          let answer = await db.questions.getAnswer(room, user, room.questions[0]);
+          if (answer) user.state = UserState.IDLE;
+        }
         await db.rooms.setUserActive(this.socketUser.id, roomId, true, user.state);
       }
 
@@ -123,7 +129,7 @@ class RoomEventHandler extends SocketEventHandler {
 
       shouldCreateMessage = shouldCreateMessage && !room.users[this.socketUser.id].active;
     } else {
-      await db.rooms.addUser(user.id, room.id);
+      await db.rooms.addUser(user.id, room.id, user.state);
       user.score = 0;
     }
 

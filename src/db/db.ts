@@ -1,13 +1,13 @@
 import {RoomDBHandler} from "./rooms";
 import {UserDBHandler} from "./users";
 import {MessageDBHandler} from "./messages";
-import {QuestionsDBHandler} from "./questions";
+import {QuestionDBHandler} from "./questions";
 
 class Database {
   rooms = RoomDBHandler;
   users = UserDBHandler;
   messages = MessageDBHandler;
-  questions = QuestionsDBHandler;
+  questions = QuestionDBHandler;
 }
 
 const db = new Database();

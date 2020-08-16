@@ -27,12 +27,12 @@ CREATE TABLE `rooms` (
 );
 
 CREATE TABLE `roomQuestions` (
-  room_id INT NOT NULL,
-  question_id INT NOT NULL,
+  roomId INT NOT NULL,
+  questionId INT NOT NULL,
   state ENUM("selection_option", "selected", "played") DEFAULT "selection_option",
-  PRIMARY KEY (room_id, question_id),
-  FOREIGN KEY (room_id) REFERENCES rooms(id) ON DELETE CASCADE,
-  FOREIGN KEY (question_id) REFERENCES questions(id) ON DELETE CASCADE
+  PRIMARY KEY (roomId, questionId),
+  FOREIGN KEY (roomId) REFERENCES rooms(id) ON DELETE CASCADE,
+  FOREIGN KEY (questionId) REFERENCES questions(id) ON DELETE CASCADE
 );
 
 CREATE TABLE `users` (
@@ -54,6 +54,19 @@ CREATE TABLE `roomUsers` (
   PRIMARY KEY (userId, roomId),
   FOREIGN KEY (userId) REFERENCES users(id) ON DELETE CASCADE,
   FOREIGN KEY (roomId) REFERENCES rooms(id) ON DELETE CASCADE
+);
+
+CREATE TABLE `roomAnswers` (
+  roomId INT NOT NULL,
+  userId INT NOT NULL,
+  questionId INT NOT NULL,
+  answer VARCHAR(160) NOT NULL,
+  userIdGuess INT,
+  state ENUM("submitted", "revealed", "guessed", "favorite", "discarded") DEFAULT "submitted",
+  PRIMARY KEY(roomId, userId, questionId),
+  FOREIGN KEY (userId) REFERENCES users(id) ON DELETE CASCADE,
+  FOREIGN KEY (roomId) REFERENCES rooms(id) ON DELETE CASCADE,
+  FOREIGN KEY (questionId) REFERENCES questions(id) ON DELETE CASCADE
 );
 
 CREATE TABLE `messages` (

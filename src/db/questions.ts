@@ -2,8 +2,10 @@ import {Room} from "../struct/room";
 import {Question, QuestionState} from "../struct/question";
 import pool from "./pool";
 import {Util} from "../helpers";
+import {User} from "../struct/user";
+import {Answer, AnswerState} from "../struct/answers";
 
-class QuestionsDBHandler {
+class QuestionDBHandler {
   static async get(id: number | string): Promise<Question> {
     let res = await pool.query(`SELECT * FROM questions WHERE id = ?`, [Util.parseId(id)]);
     if (res.length < 1) throw new Error("Invalid Question");
@@ -16,9 +18,9 @@ class QuestionsDBHandler {
     let res = await pool.query(`
       SELECT * FROM questions
       WHERE id IN (
-        SELECT question_id
+        SELECT questionId
         FROM roomQuestions
-        WHERE room_id = ? AND state = ?
+        WHERE roomId = ? AND state = ?
       )
     `, [room.id, state]);
 
@@ -27,12 +29,16 @@ class QuestionsDBHandler {
 
   static async clearFromRoom(room: Room): Promise<void> {
     await pool.query(`
-      DELETE FROM roomQuestions WHERE room_id = ? AND state = ?
+      DELETE FROM roomQuestions WHERE roomId = ? AND state = ?
     `, [room.id, QuestionState.SELECTION_OPTION]);
 
     await pool.query(`
-      UPDATE roomQuestions SET state = ? WHERE state = ? AND room_id = ?
+      UPDATE roomQuestions SET state = ? WHERE state = ? AND roomId = ?
     `, [QuestionState.PLAYED, QuestionState.SELECTED, room.id]);
+
+    await pool.query(`
+      UPDATE roomAnswers SET state = ? WHERE NOT state = ? AND roomId = ?
+    `, [AnswerState.DISCARDED, AnswerState.DISCARDED, room.id]);
   }
 
   static async getSelected(room: Room): Promise<Question | null> {
@@ -60,9 +66,9 @@ class QuestionsDBHandler {
     res = await pool.query(`
       SELECT * FROM questions 
       WHERE id NOT IN (
-        SELECT question_id 
+        SELECT questionId 
         FROM roomQuestions 
-        WHERE room_id = ?
+        WHERE roomId = ?
       )
       ORDER BY RAND()
       LIMIT 3
@@ -81,7 +87,7 @@ class QuestionsDBHandler {
       sql.push(`(${room.id}, ${row.id})`);
     }
 
-    await pool.query(`INSERT INTO roomQuestions (room_id, question_id) VALUES ${sql.join(",")}`, []);
+    await pool.query(`INSERT INTO roomQuestions (roomId, questionId) VALUES ${sql.join(",")}`, []);
 
     return questions;
   }
@@ -90,18 +96,37 @@ class QuestionsDBHandler {
     let res = await pool.query(`
       UPDATE roomQuestions
       SET state = ?
-      WHERE room_id = ? AND question_id = ? AND state = ?
+      WHERE roomId = ? AND questionId = ? AND state = ?
     `, [QuestionState.SELECTED, room.id, question.id, QuestionState.SELECTION_OPTION]);
 
     if (res.affectedRows < 1) throw new Error("Invalid question choice");
 
     await pool.query(`
       DELETE FROM roomQuestions 
-      WHERE room_id = ? AND state = ?
+      WHERE roomId = ? AND state = ?
      `, [room.id, QuestionState.SELECTION_OPTION]);
 
     return true;
   }
+
+  static async submitAnswer(room: Room, user: User, question: Question, answer: string): Promise<void> {
+    if (answer.length < 1) throw new Error("Answer too short");
+
+    await pool.query(`
+      INSERT INTO roomAnswers (roomId, userId, questionId, answer)
+      VALUES (?, ?, ?, ?)
+    `, [room.id, user.id, question.id, answer]);
+  }
+
+  static async getAnswer(room: Room, user: User, question: Question): Promise<Answer | null> {
+    let res = await pool.query(`
+      SELECT answer, userIdGuess, state FROM roomAnswers
+      WHERE roomId = ? AND userId = ? AND questionId = ?
+    `, [room.id, user.id, question.id]);
+
+    if (res.length == 0) return null;
+    return new Answer(res[0]);
+  }
 }
 
-export {QuestionsDBHandler};
+export {QuestionDBHandler};
