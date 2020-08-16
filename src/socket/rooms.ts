@@ -34,23 +34,34 @@ class RoomEventHandler extends SocketEventHandler {
 
     if (roomUser && roomUser.name && roomUser.icon) {
       let messageBody = "Left the room";
+      let activeUsers = room.getActiveUsers(roomUser.id);
+
+      let selectedUser = activeUsers.length > 0 ? activeUsers[Util.getRandomInt(0, activeUsers.length - 1)] : undefined;
+      let startNewRound = false;
 
       if (room.state === RoomState.PICKING_QUESTION && roomUser.state === UserState.SELECTING_QUESTION) {
-        let activeUsers = room.getActiveUsers(roomUser.id);
+        startNewRound = true;
+      } else if (room.state === RoomState.COLLECTING_ANSWERS && roomUser.state === UserState.ASKING_QUESTION) {
+        startNewRound = true;
+      }
 
-        if (activeUsers.length > 0) {
-          let selectedUser = activeUsers[Util.getRandomInt(0, activeUsers.length - 1)];
-          let questions = await db.questions.getSelectionOptions(room);
-          await db.rooms.setUserState(selectedUser.id, room.id, UserState.SELECTING_QUESTION);
+      if (startNewRound) {
+        if (selectedUser) {
           messageBody = `Left the room, leaving ${selectedUser.name} to pick a new question`;
-
           additionalUpdate = {
-            event: "userStateChanged",
+            event: "startRound",
             data: {
-              id: selectedUser.id,
-              state: UserState.SELECTING_QUESTION
+              chosenUserId: selectedUser.id
             }
           };
+        }
+
+
+        await db.rooms.resetRound(room);
+
+        if (selectedUser) {
+          let questions = await db.questions.getSelectionOptions(room);
+          await db.rooms.setUserState(selectedUser.id, room.id, UserState.SELECTING_QUESTION);
 
           this.socket.to(Room.tag(room.id, selectedUser.id)).emit("newQuestionsList", {
             questions: questions
@@ -87,10 +98,12 @@ class RoomEventHandler extends SocketEventHandler {
 
     user.state = UserState.IDLE;
 
-    if (user.setup && activeUsers.length < 1) {
-      if (room.state === RoomState.PICKING_QUESTION) {
+    if (user.setup) {
+      if (room.state === RoomState.PICKING_QUESTION && activeUsers.length < 1) {
         user.state = UserState.SELECTING_QUESTION;
         room.questions = await db.questions.getSelectionOptions(room);
+      } else if (room.state === RoomState.COLLECTING_ANSWERS) {
+        user.state = UserState.ANSWERING_QUESTION;
       }
     }
 

@@ -1,4 +1,4 @@
-import {Socket} from "socket.io";
+import SocketIO, {Socket} from "socket.io";
 
 class SocketUser {
   id: number;
@@ -13,10 +13,12 @@ class SocketUser {
 }
 
 class SocketEventHandler {
+  io: SocketIO.Server;
   socket: Socket;
   socketUser: SocketUser;
 
-  constructor(socket: Socket, socketUser: SocketUser) {
+  constructor(io: SocketIO.Server, socket: Socket, socketUser: SocketUser) {
+    this.io = io;
     this.socket = socket;
     this.socketUser = socketUser;
   }

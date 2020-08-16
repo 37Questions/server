@@ -60,12 +60,15 @@ function setupRoutes(app: express.Application, io: SocketIO.Server) {
               if (room.state === RoomState.PICKING_QUESTION && roomUser.state !== UserState.SELECTING_QUESTION) {
                 let questions = await db.questions.getSelectionOptions(room);
                 newState = UserState.SELECTING_QUESTION;
-                await db.rooms.setUserState(user.id, room.id, newState);
 
                 io.to(Room.tag(room.id, user.id)).emit("newQuestionsList", {
                   questions: questions
                 });
+              } else if (room.state === RoomState.COLLECTING_ANSWERS && roomUser.state !== UserState.ASKING_QUESTION) {
+                newState = UserState.ANSWERING_QUESTION;
               }
+
+              if (newState) await db.rooms.setUserState(user.id, room.id, newState);
             }
           }
 

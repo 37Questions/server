@@ -64,7 +64,7 @@ class RoomDBHandler {
     });
   }
 
-  static async get(id: number | string, withUsers = false, withMessages = false): Promise<Room> {
+  static async get(id: number | string, withUsers = false, withExtras = false): Promise<Room> {
     let res = await pool.query(`SELECT * FROM rooms WHERE id = ?`, [Util.parseId(id)]);
 
     if (res.length < 1) throw new Error("Invalid Room ID");
@@ -85,7 +85,7 @@ class RoomDBHandler {
       }
     }
 
-    if (withMessages) {
+    if (withExtras) {
       let messages = await pool.query(`
         SELECT 
           msg.id, msg.createdAt, msg.userId, 
@@ -126,6 +126,11 @@ class RoomDBHandler {
           likes: likes
         });
         if (msg === messages.length - 1) room.messages[row.id].isChained = false;
+      }
+
+      if (room.state === RoomState.COLLECTING_ANSWERS) {
+        let question = await db.questions.getSelected(room);
+        if (question) room.questions = [question];
       }
     }
     return room;
@@ -180,6 +185,16 @@ class RoomDBHandler {
     return rooms;
   }
 
+  static async setState(room: Room, state: RoomState): Promise<boolean> {
+    let res = await pool.query(`
+      UPDATE rooms
+      SET state = ?
+      WHERE id = ?
+    `, [state, room.id]);
+
+    return res.affectedRows > 0;
+  }
+
   static async getUser(id: number | string, roomId: number | string, withToken = false): Promise<User> {
     id = Util.parseId(id);
     roomId = Util.parseId(roomId);
@@ -204,6 +219,20 @@ class RoomDBHandler {
       WHERE userId = ? AND roomId = ?
     `, [active, state, userId, roomId]);
     return res.affectedRows > 0;
+  }
+
+  static async resetRound(room: Room): Promise<boolean> {
+    // TODO: randomly select question in democratic mode
+    await this.setState(room, RoomState.PICKING_QUESTION);
+    await db.questions.clearFromRoom(room);
+
+    await pool.query(`
+      UPDATE roomUsers
+      set state = ?
+      WHERE roomId = ?
+    `, [UserState.IDLE, room.id]);
+
+    return true;
   }
 
   static async setUserState(userId: number | string, roomId: number | string, state: UserState): Promise<boolean> {

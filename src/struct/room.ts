@@ -48,7 +48,7 @@ class Room extends BaseRoom {
     this.users = room.users || {};
     this.messages = room.messages || {};
 
-    this.questions = room.questions || {};
+    this.questions = room.questions || [];
   }
 
   static tag(id: number | string, userId?: number | string): string {
