@@ -14,7 +14,7 @@ class Pool {
 
   initAwsDb() {
     secrets.getJson(DB_CREDENTIALS_SECRET).then((credentials) => {
-      this.pool = mysql.createPool({
+      this.pool = this.createPool({
         host: credentials.host,
         port: credentials.port,
         user: credentials.username,
@@ -30,12 +30,23 @@ class Pool {
   initFallbackDb() {
     let hostname = process.env.RDS_HOSTNAME || "localhost";
     console.info("Initializing fallback database at " + hostname);
-    this.pool = mysql.createPool({
+    this.pool = this.createPool({
       host: hostname,
       port: parseInt(process.env.RDS_PORT as string) || 3306,
       user: process.env.RDS_USERNAME || "questions",
       password: process.env.RDS_PASSWORD || "password",
       database: process.env.RDS_DATABASE || "questions"
+    });
+  }
+
+  createPool(config: mysql.PoolConfig) {
+    return mysql.createPool({
+      host: config.host,
+      port: config.port,
+      user: config.user,
+      password: config.password,
+      database: config.database,
+      charset: "utf8mb4"
     });
   }
 

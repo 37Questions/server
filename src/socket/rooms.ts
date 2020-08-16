@@ -39,9 +39,13 @@ class RoomEventHandler extends SocketEventHandler {
       let selectedUser = activeUsers.length > 0 ? activeUsers[Util.getRandomInt(0, activeUsers.length - 1)] : undefined;
       let startNewRound = false;
 
-      if (room.state === RoomState.PICKING_QUESTION && roomUser.state === UserState.SELECTING_QUESTION) {
+      let [roomState, userState] = [room.state, roomUser.state];
+
+      if (roomState === RoomState.PICKING_QUESTION && userState === UserState.SELECTING_QUESTION) {
         startNewRound = true;
-      } else if (room.state === RoomState.COLLECTING_ANSWERS && roomUser.state === UserState.ASKING_QUESTION) {
+      } else if (roomState === RoomState.COLLECTING_ANSWERS && userState === UserState.ASKING_QUESTION) {
+        startNewRound = true;
+      } else if (roomState === RoomState.READING_ANSWERS && userState === UserState.READING_ANSWERS) {
         startNewRound = true;
       }
 
@@ -55,7 +59,6 @@ class RoomEventHandler extends SocketEventHandler {
             }
           };
         }
-
 
         await db.rooms.resetRound(room);
 

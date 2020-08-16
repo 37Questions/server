@@ -8,14 +8,25 @@ enum AnswerState {
 
 class Answer {
   answer: string;
-  userIdGuess: number;
   state: AnswerState;
+  userId?: number;
+  displayPosition?: number;
+  userIdGuess?: number;
 
   constructor(answer: Answer) {
     this.answer = answer.answer;
-    this.userIdGuess = answer.userIdGuess;
     this.state = answer.state;
+    this.userId = answer.userId;
+    this.displayPosition = answer.displayPosition;
+    this.userIdGuess = answer.userIdGuess;
+  }
+
+  strip(stripText = true) {
+    if (stripText) this.answer = "";
+    this.userId = undefined;
   }
 }
+
+
 
 export {Answer, AnswerState};

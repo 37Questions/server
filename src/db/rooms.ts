@@ -128,10 +128,18 @@ class RoomDBHandler {
         if (msg === messages.length - 1) room.messages[row.id].isChained = false;
       }
 
-      if (room.state === RoomState.COLLECTING_ANSWERS) {
+      if (room.state !== RoomState.PICKING_QUESTION) {
         let question = await db.questions.getSelected(room);
-        if (question) room.questions = [question];
+        if (question) {
+          room.questions = [question];
+
+          if (room.state === RoomState.READING_ANSWERS) {
+            let answers = await db.questions.getAnswers(room, question);
+            if (answers) room.answers = answers;
+          }
+        }
       }
+
     }
     return room;
   }

@@ -2,6 +2,7 @@ import {User} from "./user";
 import {Message} from "./message";
 import {Question} from "./question";
 import {Util} from "../helpers";
+import {Answer} from "./answers";
 
 class RoomVisibility {
   static Private = "private";
@@ -41,6 +42,7 @@ class Room extends BaseRoom {
   messages: Record<number, Message>;
 
   questions: Question[];
+  answers: Answer[];
 
   constructor(room: Room) {
     super(room);
@@ -49,6 +51,7 @@ class Room extends BaseRoom {
     this.messages = room.messages || {};
 
     this.questions = room.questions || [];
+    this.answers = room.answers || [];
   }
 
   static tag(id: number | string, userId?: number | string): string {

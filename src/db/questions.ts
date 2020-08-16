@@ -120,12 +120,43 @@ class QuestionDBHandler {
 
   static async getAnswer(room: Room, user: User, question: Question): Promise<Answer | null> {
     let res = await pool.query(`
-      SELECT answer, userIdGuess, state FROM roomAnswers
+      SELECT userId, answer, state, displayPosition, userIdGuess FROM roomAnswers
       WHERE roomId = ? AND userId = ? AND questionId = ?
     `, [room.id, user.id, question.id]);
 
     if (res.length == 0) return null;
     return new Answer(res[0]);
+  }
+
+  static async getAnswers(room: Room, question: Question, forSort = false): Promise<Answer[]> {
+    let res = await pool.query(`
+      SELECT userId, answer, state, displayPosition, userIdGuess FROM roomAnswers
+      WHERE roomId = ? AND questionId = ? AND ${forSort ? `userId IN (
+        SELECT userId FROM roomUsers WHERE roomId = ? AND active = TRUE
+      )` : `displayPosition IS NOT NULL`}
+      ORDER BY ${forSort ? "RAND()" : "displayPosition"}
+    `, [room.id, question.id, room.id]);
+
+    let answers: Answer[] = [];
+
+    res.forEach((answer: any) => answers.push(new Answer(answer)));
+
+    return answers;
+  }
+
+  static async reorderAnswers(room: Room, question: Question): Promise<Answer[]> {
+    let answers = await this.getAnswers(room, question, true);
+
+    for (let pos = 0; pos < answers.length; pos++) {
+      let answer = answers[pos];
+      await pool.query(`
+        UPDATE roomAnswers SET displayPosition = ?
+        WHERE roomId = ? AND questionId = ? AND userId = ?
+      `, [pos, room.id, question.id, answer.userId]);
+      answer.displayPosition = pos;
+    }
+
+    return answers;
   }
 }
 
