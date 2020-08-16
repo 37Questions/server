@@ -68,7 +68,7 @@ io.use((socket, next) => {
 
 io.on("connection", (socket) => {
   let userId = parseInt(socket.handshake.query.id);
-  onConnection(socket, userId);
+  onConnection(io, socket, userId);
 });
 
 http.listen(PORT, () => {

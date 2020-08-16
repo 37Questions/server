@@ -1,7 +1,7 @@
-import {Room, RoomInfo, RoomVisibility} from "../struct/room";
+import {Room, RoomInfo, RoomState, RoomVisibility} from "../struct/room";
 import {Constants, Util, Validation} from "../helpers";
 import pool from "./pool";
-import {User} from "../struct/user";
+import {User, UserState} from "../struct/user";
 import {Message, MessageLike} from "../struct/message";
 import db from "./db";
 
@@ -31,8 +31,9 @@ class RoomDBHandler {
 
     let roomId = res.insertId;
 
-    return this.addUser(userId, roomId).then(() => {
+    return this.addUser(userId, roomId, UserState.SELECTING_QUESTION).then(() => {
       user.active = true;
+      user.state = UserState.SELECTING_QUESTION;
       user.score = 0;
 
       let room = new Room({
@@ -42,6 +43,7 @@ class RoomDBHandler {
         visibility: visibility,
         votingMethod: votingMethod,
         token: token,
+        state: RoomState.PICKING_QUESTION,
         users: {
           [user.id]: user
         }
@@ -62,7 +64,7 @@ class RoomDBHandler {
     });
   }
 
-  static async get(id: number | string, withUsers = false, withMessages = false): Promise<Room> {
+  static async get(id: number | string, withUsers = false, withExtras = false): Promise<Room> {
     let res = await pool.query(`SELECT * FROM rooms WHERE id = ?`, [Util.parseId(id)]);
 
     if (res.length < 1) throw new Error("Invalid Room ID");
@@ -83,7 +85,7 @@ class RoomDBHandler {
       }
     }
 
-    if (withMessages) {
+    if (withExtras) {
       let messages = await pool.query(`
         SELECT 
           msg.id, msg.createdAt, msg.userId, 
@@ -125,8 +127,20 @@ class RoomDBHandler {
         });
         if (msg === messages.length - 1) room.messages[row.id].isChained = false;
       }
-    }
 
+      if (room.state !== RoomState.PICKING_QUESTION) {
+        let question = await db.questions.getSelected(room);
+        if (question) {
+          room.questions = [question];
+
+          if (room.state === RoomState.READING_ANSWERS) {
+            let answers = await db.questions.getAnswers(room, question);
+            if (answers) room.answers = answers;
+          }
+        }
+      }
+
+    }
     return room;
   }
 
@@ -179,6 +193,16 @@ class RoomDBHandler {
     return rooms;
   }
 
+  static async setState(room: Room, state: RoomState): Promise<boolean> {
+    let res = await pool.query(`
+      UPDATE rooms
+      SET state = ?
+      WHERE id = ?
+    `, [state, room.id]);
+
+    return res.affectedRows > 0;
+  }
+
   static async getUser(id: number | string, roomId: number | string, withToken = false): Promise<User> {
     id = Util.parseId(id);
     roomId = Util.parseId(roomId);
@@ -193,13 +217,49 @@ class RoomDBHandler {
     return new User(res[0], withToken);
   }
 
-  static async setUserActive(userId: number | string, roomId: number | string, active: boolean): Promise<boolean> {
+  static async setUserActive(userId: number | string, roomId: number | string, active: boolean, state = UserState.IDLE): Promise<boolean> {
     userId = Util.parseId(userId);
     roomId = Util.parseId(roomId);
 
     let res = await pool.query(`
-      UPDATE roomUsers SET active = ? WHERE userId = ? AND roomId = ?
-    `, [active, userId, roomId]);
+      UPDATE roomUsers 
+      SET active = ?, state = ? 
+      WHERE userId = ? AND roomId = ?
+    `, [active, state, userId, roomId]);
+    return res.affectedRows > 0;
+  }
+
+  static async resetRound(room: Room): Promise<void> {
+    // TODO: randomly select question in democratic mode
+    await this.setState(room, RoomState.PICKING_QUESTION);
+    await db.questions.clearFromRoom(room);
+
+    await pool.query(`
+      UPDATE roomUsers
+      SET state = ?
+      WHERE roomId = ?
+    `, [UserState.IDLE, room.id]);
+  }
+
+  static async startCollectingAnswers(room: Room): Promise<void> {
+    await this.setState(room, RoomState.COLLECTING_ANSWERS);
+    await pool.query(`
+      UPDATE roomUsers
+      SET state = ?
+      WHERE roomId = ?
+    `, [UserState.ANSWERING_QUESTION, room.id]);
+  }
+
+  static async setUserState(userId: number | string, roomId: number | string, state: UserState): Promise<boolean> {
+    userId = Util.parseId(userId);
+    roomId = Util.parseId(roomId);
+
+    let res = await pool.query(`
+      UPDATE roomUsers
+      SET state = ?
+      WHERE userId = ? AND roomId = ?
+    `, [state, userId, roomId]);
+
     return res.affectedRows > 0;
   }
 
@@ -219,8 +279,10 @@ class RoomDBHandler {
     return roomIds;
   }
 
-  static async addUser(userId: number, roomId: number) {
-    return pool.query(`INSERT INTO roomUsers (userId, roomId) VALUES (?, ?)`, [userId, roomId]);
+  static async addUser(userId: number, roomId: number, state = UserState.IDLE) {
+    return pool.query(`
+      INSERT INTO roomUsers (userId, roomId, state) VALUES (?, ?, ?)
+    `, [userId, roomId, state]);
   }
 }
 

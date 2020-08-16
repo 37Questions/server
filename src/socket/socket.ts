@@ -1,14 +1,16 @@
-import {Socket} from "socket.io";
+import SocketIO, {Socket} from "socket.io";
 import {User} from "../struct/user";
 import {SocketUser} from "./helpers";
 import {MessageEventHandler} from "./messages";
 import {RoomEventHandler} from "./rooms";
+import QuestionEventHandler from "./questions";
 
-function onConnection(socket: Socket, userId: number) {
+function onConnection(io: SocketIO.Server, socket: Socket, userId: number) {
   let socketUser = new SocketUser(userId);
 
-  let roomHandler = new RoomEventHandler(socket, socketUser);
-  let messageHandler = new MessageEventHandler(socket, socketUser);
+  let roomHandler = new RoomEventHandler(io, socket, socketUser);
+  let messageHandler = new MessageEventHandler(io, socket, socketUser);
+  let questionHandler = new QuestionEventHandler(io, socket, socketUser);
 
   console.info(`User #${userId} connected!`);
   socket.join(User.tag(userId));
@@ -23,6 +25,7 @@ function onConnection(socket: Socket, userId: number) {
 
   roomHandler.registerRoomEvents();
   messageHandler.registerMessageEvents();
+  questionHandler.registerQuestionEvents();
 }
 
 export {onConnection};

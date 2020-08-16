@@ -1,7 +1,9 @@
 import {SocketEventHandler} from "./helpers";
 import db from "../db/db";
-import {Room, RoomVisibility} from "../struct/room";
+import {Room, RoomState, RoomVisibility} from "../struct/room";
 import {Message} from "../struct/message";
+import {UserState} from "../struct/user";
+import {Util} from "../helpers";
 
 class RoomJoinInfo {
   room: Room;
@@ -26,16 +28,57 @@ class RoomEventHandler extends SocketEventHandler {
       return user;
     }
 
-    let room = await db.rooms.get(this.socketUser.roomId);
-    let message;
+    let room = await db.rooms.get(this.socketUser.roomId, true);
+    let roomUser = room.users[user.id];
+    let message, additionalUpdate;
 
-    if (user.name && user.icon) {
-      message = await db.messages.create(user, room, "Left the room", true);
+    if (roomUser && roomUser.name && roomUser.icon) {
+      let messageBody = "Left the room";
+      let activeUsers = room.getActiveUsers(roomUser.id);
+
+      let selectedUser = activeUsers.length > 0 ? activeUsers[Util.getRandomInt(0, activeUsers.length - 1)] : undefined;
+      let startNewRound = false;
+
+      let [roomState, userState] = [room.state, roomUser.state];
+
+      if (roomState === RoomState.PICKING_QUESTION && userState === UserState.SELECTING_QUESTION) {
+        startNewRound = true;
+      } else if (roomState === RoomState.COLLECTING_ANSWERS && userState === UserState.ASKING_QUESTION) {
+        startNewRound = true;
+      } else if (roomState === RoomState.READING_ANSWERS && userState === UserState.READING_ANSWERS) {
+        startNewRound = true;
+      }
+
+      if (startNewRound) {
+        if (selectedUser) {
+          messageBody = `Left the room, leaving ${selectedUser.name} to pick a new question`;
+          additionalUpdate = {
+            event: "startRound",
+            data: {
+              chosenUserId: selectedUser.id
+            }
+          };
+        }
+
+        await db.rooms.resetRound(room);
+
+        if (selectedUser) {
+          let questions = await db.questions.getSelectionOptions(room);
+          await db.rooms.setUserState(selectedUser.id, room.id, UserState.SELECTING_QUESTION);
+
+          this.socket.to(Room.tag(room.id, selectedUser.id)).emit("newQuestionsList", {
+            questions: questions
+          });
+        }
+      }
+
+      message = await db.messages.create(roomUser, room, messageBody, true);
     }
 
     this.socket.to(room.tag).emit("userLeft", {
       id: this.socketUser.id,
-      message: message
+      message: message,
+      additionalUpdate: additionalUpdate
     });
 
     await db.rooms.setUserActive(this.socketUser.id, room.id, false).then(() => {
@@ -54,14 +97,42 @@ class RoomEventHandler extends SocketEventHandler {
     if (room.visibility !== RoomVisibility.Public && room.token !== token) throw new Error("Invalid Token");
 
     let shouldCreateMessage = !!(user.name && user.icon);
+    let activeUsers = room.getActiveUsers();
+
+    user.state = UserState.IDLE;
+
+    if (user.setup) {
+      if (room.state === RoomState.PICKING_QUESTION && activeUsers.length < 1) {
+        user.state = UserState.SELECTING_QUESTION;
+        room.questions = await db.questions.getSelectionOptions(room);
+      }
+    }
+
+    if (room.state === RoomState.COLLECTING_ANSWERS) {
+      user.state = UserState.ANSWERING_QUESTION;
+    }
 
     if (room.users.hasOwnProperty(this.socketUser.id)) {
       this.socket.to(Room.tag(roomId, this.socketUser.id)).emit("forceLogout");
-      await db.rooms.setUserActive(this.socketUser.id, roomId, true);
-      user.score = room.users[this.socketUser.id].score;
+      let existingUser = room.users[this.socketUser.id];
+      if (existingUser.active) {
+        user.state = existingUser.state;
+        if (user.state === UserState.SELECTING_QUESTION) {
+          room.questions = await db.questions.getSelectionOptions(room);
+        }
+      } else {
+        if (room.state === RoomState.COLLECTING_ANSWERS) {
+          let answer = await db.questions.getAnswer(room, user, room.questions[0]);
+          if (answer) user.state = UserState.IDLE;
+        }
+        await db.rooms.setUserActive(this.socketUser.id, roomId, true, user.state);
+      }
+
+      user.score = existingUser.score;
+
       shouldCreateMessage = shouldCreateMessage && !room.users[this.socketUser.id].active;
     } else {
-      await db.rooms.addUser(user.id, room.id);
+      await db.rooms.addUser(user.id, room.id, user.state);
       user.score = 0;
     }
 
@@ -98,6 +169,7 @@ class RoomEventHandler extends SocketEventHandler {
       let votingMethod = data.votingMethod;
 
       let room = await db.rooms.create(this.socketUser.id, name, visibility, votingMethod);
+      room.questions = await db.questions.getSelectionOptions(room);
       return this.joinSocketRoom(new RoomJoinInfo(room)).then((room) => {
         console.info(`Created room #${room.id}`);
         return {room: room};
@@ -108,7 +180,6 @@ class RoomEventHandler extends SocketEventHandler {
       let info = await this.joinRoom(data.id, data.token);
       let room = await this.joinSocketRoom(info);
 
-      console.info(`Added user #${this.socketUser.id} to room #${room.id}!`);
       return {room: room};
     });
 

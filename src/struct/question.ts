@@ -8,4 +8,10 @@ class Question {
   }
 }
 
-export default Question;
+enum QuestionState {
+  SELECTION_OPTION = "selection_option",
+  SELECTED = "selected",
+  PLAYED = "played"
+}
+
+export {Question, QuestionState};
