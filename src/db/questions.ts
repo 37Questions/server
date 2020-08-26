@@ -158,6 +158,25 @@ class QuestionDBHandler {
 
     return answers;
   }
+
+  static async revealAnswer(room: Room, question: Question, displayPosition: number): Promise<Answer> {
+    let res = await pool.query(`
+      SELECT userId, answer, state, displayPosition, userIdGuess FROM roomAnswers
+      WHERE roomId = ? AND questionId = ? AND state = ? AND displayPosition = ?
+    `, [room.id, question.id, AnswerState.SUBMITTED, displayPosition]);
+    if (res.length < 1) throw new Error("Invalid Answer");
+
+    let answer = new Answer(res[0]);
+    answer.state = AnswerState.REVEALED;
+
+    await pool.query(`
+      UPDATE roomAnswers SET state = ?
+      WHERE roomId = ? AND questionId = ? AND userId = ?
+    `, [AnswerState.REVEALED, room.id, question.id, answer.userId]);
+
+    answer.strip();
+    return answer;
+  }
 }
 
 export {QuestionDBHandler};
