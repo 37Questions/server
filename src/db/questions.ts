@@ -177,6 +177,27 @@ class QuestionDBHandler {
     answer.strip();
     return answer;
   }
+
+  static async setFavorite(room: Room, question: Question, displayPosition: number): Promise<boolean> {
+    let res = await pool.query(`
+      SELECT state FROM roomAnswers
+      WHERE roomId = ? AND questionId = ? AND state = ? AND displayPosition = ?
+    `, [room.id, question.id, AnswerState.REVEALED, displayPosition]);
+
+    if (res.length < 1) throw new Error("Invalid Answer");
+
+    await pool.query(`
+      UPDATE roomAnswers SET state = ?
+      WHERE roomId = ? AND questionId = ? AND state = ?
+    `, [AnswerState.REVEALED, room.id, question.id, AnswerState.FAVORITE]);
+
+    res = await pool.query(`
+      UPDATE roomAnswers SET state = ?
+      WHERE roomId = ? AND questionId = ? AND state = ? AND displayPosition = ?
+    `, [AnswerState.FAVORITE, room.id, question.id, AnswerState.REVEALED, displayPosition]);
+
+    return res.affectedRows > 0;
+  }
 }
 
 export {QuestionDBHandler};
