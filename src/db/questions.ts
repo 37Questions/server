@@ -35,10 +35,6 @@ class QuestionDBHandler {
     await pool.query(`
       UPDATE roomQuestions SET state = ? WHERE state = ? AND roomId = ?
     `, [QuestionState.PLAYED, QuestionState.SELECTED, room.id]);
-
-    await pool.query(`
-      UPDATE roomAnswers SET state = ? WHERE NOT state = ? AND roomId = ?
-    `, [AnswerState.DISCARDED, AnswerState.DISCARDED, room.id]);
   }
 
   static async getSelected(room: Room): Promise<Question | null> {
@@ -178,6 +174,15 @@ class QuestionDBHandler {
     return answer;
   }
 
+  static async clearFavorite(room: Room, question: Question): Promise<boolean> {
+    await pool.query(`
+      UPDATE roomAnswers SET state = ?
+      WHERE roomId = ? AND questionId = ? AND state = ?
+    `, [AnswerState.REVEALED, room.id, question.id, AnswerState.FAVORITE]);
+
+    return true;
+  }
+
   static async setFavorite(room: Room, question: Question, displayPosition: number): Promise<boolean> {
     let res = await pool.query(`
       SELECT state FROM roomAnswers
@@ -186,10 +191,7 @@ class QuestionDBHandler {
 
     if (res.length < 1) throw new Error("Invalid Answer");
 
-    await pool.query(`
-      UPDATE roomAnswers SET state = ?
-      WHERE roomId = ? AND questionId = ? AND state = ?
-    `, [AnswerState.REVEALED, room.id, question.id, AnswerState.FAVORITE]);
+    await this.clearFavorite(room, question);
 
     res = await pool.query(`
       UPDATE roomAnswers SET state = ?

@@ -1,9 +1,7 @@
 enum AnswerState {
   SUBMITTED = "submitted",
   REVEALED = "revealed",
-  GUESSED = "guessed",
   FAVORITE = "favorite",
-  DISCARDED = "discarded"
 }
 
 class Answer {

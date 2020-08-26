@@ -124,6 +124,14 @@ class QuestionEventHandler extends SocketEventHandler {
       });
 
       return {success: true};
+    });
+
+    this.listen("clearFavoriteAnswer", async () => {
+      let info = await this.getQuestionInfo(RoomState.READING_ANSWERS, UserState.READING_ANSWERS);
+      await db.questions.clearFavorite(info.room, info.question);
+
+      this.io.to(info.room.tag).emit("favoriteAnswerCleared", {});
+      return {success: true};
     })
   }
 }

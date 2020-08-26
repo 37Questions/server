@@ -61,7 +61,7 @@ CREATE TABLE `roomAnswers` (
   userId INT NOT NULL,
   questionId INT NOT NULL,
   answer VARCHAR(160) NOT NULL,
-  state ENUM("submitted", "revealed", "guessed", "favorite", "discarded") DEFAULT "submitted",
+  state ENUM("submitted", "revealed", "favorite") DEFAULT "submitted",
   displayPosition INT,
   userIdGuess INT,
   PRIMARY KEY(roomId, userId, questionId),
