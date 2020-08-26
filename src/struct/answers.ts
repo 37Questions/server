@@ -1,9 +1,7 @@
 enum AnswerState {
   SUBMITTED = "submitted",
   REVEALED = "revealed",
-  GUESSED = "guessed",
   FAVORITE = "favorite",
-  DISCARDED = "discarded"
 }
 
 class Answer {
@@ -21,8 +19,8 @@ class Answer {
     this.userIdGuess = answer.userIdGuess;
   }
 
-  strip(stripText = true) {
-    if (stripText) this.answer = "";
+  strip() {
+    if (this.state === AnswerState.SUBMITTED) this.answer = "";
     this.userId = undefined;
   }
 }

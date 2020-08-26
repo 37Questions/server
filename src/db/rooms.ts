@@ -135,7 +135,10 @@ class RoomDBHandler {
 
           if (room.state === RoomState.READING_ANSWERS) {
             let answers = await db.questions.getAnswers(room, question);
-            if (answers) room.answers = answers;
+            if (answers) {
+              answers.forEach((answer) => answer.strip());
+              room.answers = answers;
+            }
           }
         }
       }

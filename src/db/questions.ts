@@ -35,10 +35,6 @@ class QuestionDBHandler {
     await pool.query(`
       UPDATE roomQuestions SET state = ? WHERE state = ? AND roomId = ?
     `, [QuestionState.PLAYED, QuestionState.SELECTED, room.id]);
-
-    await pool.query(`
-      UPDATE roomAnswers SET state = ? WHERE NOT state = ? AND roomId = ?
-    `, [AnswerState.DISCARDED, AnswerState.DISCARDED, room.id]);
   }
 
   static async getSelected(room: Room): Promise<Question | null> {
@@ -157,6 +153,52 @@ class QuestionDBHandler {
     }
 
     return answers;
+  }
+
+  static async revealAnswer(room: Room, question: Question, displayPosition: number): Promise<Answer> {
+    let res = await pool.query(`
+      SELECT userId, answer, state, displayPosition, userIdGuess FROM roomAnswers
+      WHERE roomId = ? AND questionId = ? AND state = ? AND displayPosition = ?
+    `, [room.id, question.id, AnswerState.SUBMITTED, displayPosition]);
+    if (res.length < 1) throw new Error("Invalid Answer");
+
+    let answer = new Answer(res[0]);
+    answer.state = AnswerState.REVEALED;
+
+    await pool.query(`
+      UPDATE roomAnswers SET state = ?
+      WHERE roomId = ? AND questionId = ? AND userId = ?
+    `, [AnswerState.REVEALED, room.id, question.id, answer.userId]);
+
+    answer.strip();
+    return answer;
+  }
+
+  static async clearFavorite(room: Room, question: Question): Promise<boolean> {
+    await pool.query(`
+      UPDATE roomAnswers SET state = ?
+      WHERE roomId = ? AND questionId = ? AND state = ?
+    `, [AnswerState.REVEALED, room.id, question.id, AnswerState.FAVORITE]);
+
+    return true;
+  }
+
+  static async setFavorite(room: Room, question: Question, displayPosition: number): Promise<boolean> {
+    let res = await pool.query(`
+      SELECT state FROM roomAnswers
+      WHERE roomId = ? AND questionId = ? AND state = ? AND displayPosition = ?
+    `, [room.id, question.id, AnswerState.REVEALED, displayPosition]);
+
+    if (res.length < 1) throw new Error("Invalid Answer");
+
+    await this.clearFavorite(room, question);
+
+    res = await pool.query(`
+      UPDATE roomAnswers SET state = ?
+      WHERE roomId = ? AND questionId = ? AND state = ? AND displayPosition = ?
+    `, [AnswerState.FAVORITE, room.id, question.id, AnswerState.REVEALED, displayPosition]);
+
+    return res.affectedRows > 0;
   }
 }
 
