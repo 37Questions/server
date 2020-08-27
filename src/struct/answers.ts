@@ -4,27 +4,57 @@ enum AnswerState {
   FAVORITE = "favorite",
 }
 
-class Answer {
-  answer: string;
-  state: AnswerState;
+class StrippableAnswer {
   userId?: number;
-  displayPosition?: number;
-  userIdGuess?: number;
 
-  constructor(answer: Answer) {
-    this.answer = answer.answer;
-    this.state = answer.state;
-    this.userId = answer.userId;
-    this.displayPosition = answer.displayPosition;
-    this.userIdGuess = answer.userIdGuess;
+  constructor(strippable: StrippableAnswer) {
+    this.userId = strippable.userId;
   }
 
   strip() {
-    if (this.state === AnswerState.SUBMITTED) this.answer = "";
     this.userId = undefined;
   }
 }
 
+class Answer extends StrippableAnswer {
+  id?: number;
+  answer: string;
+  state: AnswerState;
+  displayPosition?: number;
+  guesses: AnswerGuess[] = [];
 
+  constructor(answer: Answer) {
+    super(answer);
+    this.id = answer.id;
+    this.answer = answer.answer;
+    this.state = answer.state;
+    this.displayPosition = answer.displayPosition;
+  }
 
-export {Answer, AnswerState};
+  strip() {
+    super.strip();
+    this.id = undefined;
+    if (this.state === AnswerState.SUBMITTED) this.answer = "";
+    this.guesses.forEach((guess) => guess.strip());
+  }
+}
+
+class AnswerGuess extends StrippableAnswer {
+  guessedUserId: number;
+
+  constructor(guess: AnswerGuess) {
+    super(guess);
+    this.guessedUserId = guess.guessedUserId;
+  }
+}
+
+class FavoriteAnswer extends StrippableAnswer {
+  displayPosition: number;
+
+  constructor(favorite: FavoriteAnswer) {
+    super(favorite);
+    this.displayPosition = favorite.displayPosition;
+  }
+}
+
+export {Answer, AnswerState, AnswerGuess, FavoriteAnswer};

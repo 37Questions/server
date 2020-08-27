@@ -134,15 +134,19 @@ class RoomDBHandler {
           room.questions = [question];
 
           if (room.state === RoomState.READING_ANSWERS) {
-            let answers = await db.questions.getAnswers(room, question);
-            if (answers) {
-              answers.forEach((answer) => answer.strip());
-              room.answers = answers;
-            }
+            let answers = await db.answers.getAll(room, question, true);
+            answers.forEach((answer) => answer.strip());
+
+            room.answers = answers;
+
+            let roomFavorites = await db.answers.getFavorites(room, question, true);
+            let favorites: number[] = [];
+
+            roomFavorites.forEach((favorite) => favorites.push(favorite.displayPosition));
+            room.favoriteAnswers = favorites;
           }
         }
       }
-
     }
     return room;
   }

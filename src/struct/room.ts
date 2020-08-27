@@ -2,7 +2,7 @@ import {User} from "./user";
 import {Message} from "./message";
 import {Question} from "./question";
 import {Util} from "../helpers";
-import {Answer} from "./answers";
+import {Answer, FavoriteAnswer} from "./answers";
 
 class RoomVisibility {
   static Private = "private";
@@ -43,6 +43,7 @@ class Room extends BaseRoom {
 
   questions: Question[];
   answers: Answer[];
+  favoriteAnswers: number[];
 
   constructor(room: Room) {
     super(room);
@@ -52,6 +53,7 @@ class Room extends BaseRoom {
 
     this.questions = room.questions || [];
     this.answers = room.answers || [];
+    this.favoriteAnswers = room.favoriteAnswers || [];
   }
 
   static tag(id: number | string, userId?: number | string): string {

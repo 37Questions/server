@@ -122,7 +122,7 @@ class RoomEventHandler extends SocketEventHandler {
         }
       } else {
         if (room.state === RoomState.COLLECTING_ANSWERS) {
-          let answer = await db.questions.getAnswer(room, user, room.questions[0]);
+          let answer = await db.answers.get(room, room.questions[0], user);
           if (answer) user.state = UserState.IDLE;
         }
         await db.rooms.setUserActive(this.socketUser.id, roomId, true, user.state);

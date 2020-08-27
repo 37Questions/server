@@ -4,6 +4,7 @@ import {Room, RoomState} from "../struct/room";
 import {User, UserState} from "../struct/user";
 import {Validation} from "../helpers";
 import {Question} from "../struct/question";
+import {Answer} from "../struct/answers";
 
 class QuestionInfo {
   room: Room;
@@ -18,11 +19,11 @@ class QuestionInfo {
 }
 
 class AnswerInfo extends QuestionInfo {
-  displayPosition: number;
+  answer: Answer;
 
-  constructor(room: Room, user: User, question: Question, displayPosition: number) {
+  constructor(room: Room, user: User, question: Question, answer: Answer) {
     super(room, user, question);
-    this.displayPosition = displayPosition;
+    this.answer = answer;
   }
 }
 
@@ -45,8 +46,11 @@ class QuestionEventHandler extends SocketEventHandler {
 
   private async getAnswerInfo(displayPosition: number): Promise<AnswerInfo> {
     if (!Validation.uint(displayPosition)) throw new Error("Invalid Answer Position");
+
     let info = await this.getQuestionInfo(RoomState.READING_ANSWERS, UserState.READING_ANSWERS);
-    return new AnswerInfo(info.room, info.user, info.question, displayPosition);
+    let answer = await db.answers.fromPosition(info.room, info.question, displayPosition);
+
+    return new AnswerInfo(info.room, info.user, info.question, answer);
   }
 
   registerQuestionEvents() {
@@ -75,7 +79,7 @@ class QuestionEventHandler extends SocketEventHandler {
     this.listen("submitAnswer", async (data) => {
       let info = await this.getQuestionInfo(RoomState.COLLECTING_ANSWERS, UserState.ANSWERING_QUESTION);
 
-      await db.questions.submitAnswer(info.room, info.user, info.question, data.answer);
+      await db.answers.submit(info.room, info.question, info.user, data.answer);
       await db.rooms.setUserState(info.user.id, info.room.id, UserState.IDLE);
 
       this.io.to(info.room.tag).emit("userStateChanged", {
@@ -89,7 +93,7 @@ class QuestionEventHandler extends SocketEventHandler {
     this.listen("startReadingAnswers", async () => {
       let info = await this.getQuestionInfo(RoomState.COLLECTING_ANSWERS, UserState.ASKING_QUESTION);
 
-      let answers = await db.questions.reorderAnswers(info.room, info.question);
+      let answers = await db.answers.shuffle(info.room, info.question);
       answers.forEach((answer) => answer.strip());
 
       await db.rooms.setState(info.room, RoomState.READING_ANSWERS);
@@ -105,7 +109,8 @@ class QuestionEventHandler extends SocketEventHandler {
     this.listen("revealAnswer", async (data) => {
       let info = await this.getAnswerInfo(data.displayPosition);
 
-      let answer = await db.questions.revealAnswer(info.room, info.question, info.displayPosition);
+      if (isNaN(info.answer.displayPosition as number)) throw new Error("Failed to reveal answer");
+      let answer = await db.answers.reveal(info.room, info.question, info.answer.displayPosition as number);
 
       this.io.to(info.room.tag).emit("answerRevealed", {
         answer: answer
@@ -116,11 +121,10 @@ class QuestionEventHandler extends SocketEventHandler {
 
     this.listen("setFavoriteAnswer", async (data) => {
       let info = await this.getAnswerInfo(data.displayPosition);
-
-      await db.questions.setFavorite(info.room, info.question, info.displayPosition);
+      await db.answers.setPersonalFavorite(info.room, info.question, info.user, info.answer);
 
       this.io.to(info.room.tag).emit("answerFavorited", {
-        displayPosition: info.displayPosition
+        displayPosition: info.answer.displayPosition
       });
 
       return {success: true};
@@ -128,11 +132,11 @@ class QuestionEventHandler extends SocketEventHandler {
 
     this.listen("clearFavoriteAnswer", async () => {
       let info = await this.getQuestionInfo(RoomState.READING_ANSWERS, UserState.READING_ANSWERS);
-      await db.questions.clearFavorite(info.room, info.question);
+      await db.answers.clearPersonalFavorite(info.room, info.question, info.user);
 
       this.io.to(info.room.tag).emit("favoriteAnswerCleared", {});
       return {success: true};
-    })
+    });
   }
 }
 
