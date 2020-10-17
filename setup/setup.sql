@@ -15,6 +15,14 @@ CREATE TABLE `questions` (
   PRIMARY KEY (id)
 );
 
+CREATE TABLE `questionSuggestions` (
+  id INT NOT NULL AUTO_INCREMENT,
+  question VARCHAR(160) NOT NULL,
+  userId INT NOT NULL,
+  PRIMARY KEY (id),
+  FOREIGN KEY (userId) REFERENCES users(id) ON DELETE CASCADE
+);
+
 CREATE TABLE `rooms` (
   id INT NOT NULL AUTO_INCREMENT,
   name VARCHAR(32),

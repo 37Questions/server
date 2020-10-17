@@ -3,7 +3,6 @@ import {Question, QuestionState} from "../struct/question";
 import pool from "./pool";
 import {Util} from "../helpers";
 import {User} from "../struct/user";
-import {Answer, AnswerState} from "../struct/answers";
 
 class QuestionDBHandler {
   static async get(id: number | string): Promise<Question> {
@@ -12,6 +11,13 @@ class QuestionDBHandler {
 
     let row = res[0];
     return new Question(row.id, row.question);
+  }
+
+  static async suggest(userId: number, question: string): Promise<number> {
+    if (question.length < Question.MIN_LENGTH) throw new Error("Question must be at least " + Question.MIN_LENGTH + " characters long!");
+    else if (question.length > Question.MAX_LENGTH) throw new Error("Question cannot be longer than " + Question.MAX_LENGTH + " characters!");
+    let res = await pool.query(`INSERT INTO questionSuggestions (question, userId) VALUES (?, ?)`, [question, userId]);
+    return res.insertId;
   }
 
   static async getFromRoom(room: Room, state: QuestionState): Promise<Question[]> {

@@ -29,7 +29,7 @@ class SocketEventHandler {
         if (res && fn) fn(res);
       }).catch((error) => {
         console.warn(`Socket event '${event}' returned error:`, error.message);
-        if (fn) fn({error: error.message});
+        if (fn) fn({error: error.message || true});
       });
     });
   }

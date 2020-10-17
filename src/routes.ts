@@ -121,7 +121,7 @@ function setupRoutes(app: express.Application, io: SocketIO.Server) {
       console.warn(`Failed to get room list:`, err.message);
       res.send({error: err.message});
     })
-  })
+  });
 }
 
 export {setupRoutes};

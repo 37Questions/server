@@ -28,7 +28,6 @@ class AnswerInfo extends QuestionInfo {
 }
 
 class QuestionEventHandler extends SocketEventHandler {
-
   private async getQuestionInfo(expectedRoomState: RoomState, expectedUserState: UserState): Promise<QuestionInfo> {
     if (!this.socketUser.roomId) throw new Error("Not in a room");
 
@@ -54,6 +53,14 @@ class QuestionEventHandler extends SocketEventHandler {
   }
 
   registerQuestionEvents() {
+    this.listen("suggestQuestion", async (data) => {
+      let id = await db.questions.suggest(this.socketUser.id, data.question);
+      return {
+        success: true,
+        questionId: id
+      };
+    });
+
     this.listen("submitQuestion", async (data) => {
       if (!this.socketUser.roomId) throw new Error("Not in a room");
       let question = await db.questions.get(data.id);

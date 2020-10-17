@@ -1,4 +1,7 @@
 class Question {
+  static MIN_LENGTH = 1;
+  static MAX_LENGTH = 160;
+
   id: number;
   question: string;
 
