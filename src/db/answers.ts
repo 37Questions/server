@@ -4,6 +4,7 @@ import {Question} from "../struct/question";
 import pool from "./pool";
 import {Answer, AnswerGuess, AnswerState, FavoriteAnswer} from "../struct/answers";
 import db from "./db";
+import {Util} from "../helpers";
 
 class AnswerDBHandler {
   static async submit(room: Room, question: Question, user: User, answer: string): Promise<void> {
@@ -54,7 +55,7 @@ class AnswerDBHandler {
         ) AS guesses
       ` : ""}
       FROM answers ans
-      ${withGuesses ? `LEFT JOIN answerGuesses guesses ON ans.id = guesses.answerId` : ""}
+      ${withGuesses ? `LEFT JOIN answerGuesses guesses ON ans.roomId = guesses.roomId AND ans.questionId = guesses.questionId AND ans.id = guesses.answerId` : ""}
       WHERE ans.roomId = ? AND ans.questionId = ? AND ${forSort ? `ans.userId IN (
         SELECT users.userId FROM roomUsers users WHERE users.roomId = ? AND users.active = TRUE
       )` : `ans.displayPosition IS NOT NULL`}
@@ -73,8 +74,8 @@ class AnswerDBHandler {
         for (let g = 0; g < guessesData.length; g++) {
           let guessData = guessesData[g].split(":");
           answer.guesses.push(new AnswerGuess({
-            userId: guessData[0],
-            guessedUserId: guessData[1]
+            userId: Util.parseId(guessData[0]),
+            guessedUserId: Util.parseId(guessData[1])
           } as AnswerGuess));
         }
       }
@@ -196,12 +197,12 @@ class AnswerDBHandler {
     return favorites;
   }
 
-  static async getGuesses(answer: Answer, strip = false): Promise<AnswerGuess[]> {
+  static async getGuesses(room: Room, question: Question, answer: Answer, strip = false): Promise<AnswerGuess[]> {
     let res = await pool.query(`
-      SELECT userId, guessUserId
+      SELECT userId, guessedUserId
       FROM answerGuesses
-      WHERE answerId = ?
-    `, [answer.id]);
+      WHERE roomId = ? AND questionId = ? answerId = ?
+    `, [room.id, question.id, answer.id]);
 
     let guesses: AnswerGuess[] = [];
 
@@ -214,40 +215,40 @@ class AnswerDBHandler {
     return guesses;
   }
 
-  static async getGuess(answer: Answer, user: User): Promise<AnswerGuess | null> {
+  static async getGuessedAnswerId(room: Room, question: Question, user: User, guessedUser: User): Promise<number> {
     let res = await pool.query(`
-      SELECT guessUserId
+      SELECT answerId
       FROM answerGuesses
-      WHERE answerId = ? AND userId = ?
-    `, [answer.id, user.id]);
+      WHERE roomId = ? AND questionId = ? AND userId = ? AND guessedUserId = ?
+    `, [room.id, question.id, user.id, guessedUser.id]);
 
-    if (res.length < 1) return null;
-
-    let guess = new AnswerGuess(res[0]);
-    guess.userId = user.id;
-
-    return guess;
+    if (res.length < 1) return -1;
+    return res[0].answerId;
   }
 
-  static async makeGuess(room: Room, user: User, answer: Answer, guessedUserId: number | string): Promise<void> {
-    let guessedUser = await db.rooms.getUser(guessedUserId, room.id);
+  static async makeGuess(room: Room, question: Question, user: User, answer: Answer, guessedUser: User): Promise<void> {
     if (guessedUser.id === user.id) throw new Error("Guesses must be for other players");
 
-    let existingGuess = await this.getGuess(answer, user);
+    let existingGuess = await this.getGuessedAnswerId(room, question, user, guessedUser);
 
-    if (existingGuess) {
-      if (existingGuess.guessedUserId === guessedUser.id) return;
+    if (existingGuess === answer.id) return;
 
+    await pool.query(`
+      DELETE FROM answerGuesses
+      WHERE roomId = ? AND questionId = ? AND userId = ? AND answerId = ?
+    `, [room.id, question.id, user.id, answer.id]);
+
+    if (existingGuess >= 0) {
       await pool.query(`
         UPDATE answerGuesses
-        SET guessedUserId = ?
-        WHERE answerId = ? AND userId = ?
-      `, [guessedUser.id, answer.id, user.id]);
+        SET answerId = ?
+        WHERE roomId = ? AND questionId = ? AND userId = ? AND guessedUserId = ?
+      `, [answer.id, room.id, question.id, user.id, guessedUser.id]);
     } else {
       await pool.query(`
-        INSERT INTO answerGuesses (answerId, userId, guessedUserId)
-        VALUES (?, ?, ?)
-      `, [answer.id, user.id, guessedUser.id]);
+        INSERT INTO answerGuesses (roomId, questionId, userId, guessedUserId, answerId)
+        VALUES (?, ?, ?, ?, ?)
+      `, [room.id, question.id, user.id, guessedUser.id, answer.id]);
     }
   }
 }

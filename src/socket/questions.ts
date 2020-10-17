@@ -144,6 +144,18 @@ class QuestionEventHandler extends SocketEventHandler {
       this.io.to(info.room.tag).emit("favoriteAnswerCleared", {});
       return {success: true};
     });
+
+    this.listen("makeAuthorGuess", async (data) => {
+      let info = await this.getAnswerInfo(data.displayPosition);
+      let guessedUser = await db.rooms.getUser(data.guessedUserId, info.room.id);
+      await db.answers.makeGuess(info.room, info.question, info.user, info.answer, guessedUser);
+
+      this.io.to(info.room.tag).emit("answerGuessed", {
+        displayPosition: info.answer.displayPosition,
+        guessedUserId: guessedUser.id
+      });
+      return {success: true};
+    });
   }
 }
 

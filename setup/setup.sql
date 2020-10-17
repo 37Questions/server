@@ -79,12 +79,17 @@ CREATE TABLE `answers` (
 );
 
 CREATE TABLE `answerGuesses` (
-  answerId INT NOT NULL,
+  roomId INT NOT NULL,
+  questionId INT NOT NULL,
   userId INT NOT NULL,
-  guessedUserId INT,
-  PRIMARY KEY(answerId, userId),
-  FOREIGN KEY (answerId) REFERENCES answers(id) ON DELETE CASCADE,
-  FOREIGN KEY (userId) REFERENCES users(id) ON DELETE CASCADE
+  guessedUserId INT NOT NULL,
+  answerId INT NOT NULL,
+  PRIMARY KEY(roomId, questionId, userId, guessedUserId),
+  FOREIGN KEY (roomId) REFERENCES rooms(id) ON DELETE CASCADE,
+  FOREIGN KEY (questionId) REFERENCES questions(id) ON DELETE CASCADE,
+  FOREIGN KEY (userId) REFERENCES users(id) ON DELETE CASCADE,
+  FOREIGN KEY (guessedUserId) REFERENCES users(id) ON DELETE CASCADE,
+  FOREIGN KEY (answerId) REFERENCES answers(id) ON DELETE CASCADE
 );
 
 CREATE TABLE `favoriteAnswers` (
