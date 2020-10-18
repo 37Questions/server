@@ -94,7 +94,7 @@ class RoomEventHandler extends SocketEventHandler {
 
     let room = await db.rooms.get(roomId, true, true);
     if (!room.users) throw new Error("Corrupt Room (No users found)");
-    if (room.visibility !== RoomVisibility.Public && room.token !== token) throw new Error("Invalid Token");
+    if (room.visibility !== RoomVisibility.PUBLIC && room.token !== token) throw new Error("Invalid Token");
 
     let shouldCreateMessage = !!(user.name && user.icon);
     let activeUsers = room.getActiveUsers();

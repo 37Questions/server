@@ -15,14 +15,6 @@ CREATE TABLE `questions` (
   PRIMARY KEY (id)
 );
 
-CREATE TABLE `questionSuggestions` (
-  id INT NOT NULL AUTO_INCREMENT,
-  question VARCHAR(160) NOT NULL,
-  userId INT NOT NULL,
-  PRIMARY KEY (id),
-  FOREIGN KEY (userId) REFERENCES users(id) ON DELETE CASCADE
-);
-
 CREATE TABLE `rooms` (
   id INT NOT NULL AUTO_INCREMENT,
   name VARCHAR(32),
@@ -30,7 +22,7 @@ CREATE TABLE `rooms` (
   visibility ENUM("private", "public") DEFAULT "public",
   votingMethod ENUM("winner", "rotate", "democratic") DEFAULT "rotate",
   token VARCHAR(8),
-  state ENUM("picking_question", "collecting_answers", "reading_answers") DEFAULT "picking_question",
+  state ENUM("picking_question", "collecting_answers", "reading_answers", "viewing_results") DEFAULT "picking_question",
   PRIMARY KEY (id)
 );
 
@@ -53,12 +45,20 @@ CREATE TABLE `users` (
   PRIMARY KEY (id)
 );
 
+CREATE TABLE `questionSuggestions` (
+  id INT NOT NULL AUTO_INCREMENT,
+  question VARCHAR(160) NOT NULL,
+  userId INT NOT NULL,
+  PRIMARY KEY (id),
+  FOREIGN KEY (userId) REFERENCES users(id) ON DELETE CASCADE
+);
+
 CREATE TABLE `roomUsers` (
   userId INT NOT NULL,
   roomId INT NOT NULL,
   active BOOLEAN DEFAULT TRUE,
   score INT NOT NULL DEFAULT 0,
-  state ENUM("idle", "selecting_question", "asking_question", "answering_question", "reading_answers") DEFAULT "idle",
+  state ENUM("idle", "selecting_question", "asking_question", "answering_question", "reading_answers", "asked_question", "winner", "asking_next") DEFAULT "idle",
   PRIMARY KEY (userId, roomId),
   FOREIGN KEY (userId) REFERENCES users(id) ON DELETE CASCADE,
   FOREIGN KEY (roomId) REFERENCES rooms(id) ON DELETE CASCADE

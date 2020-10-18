@@ -5,7 +5,10 @@ enum UserState {
   SELECTING_QUESTION = "selecting_question",
   ASKING_QUESTION = "asking_question",
   ANSWERING_QUESTION = "answering_question",
-  READING_ANSWERS = "reading_answers"
+  READING_ANSWERS = "reading_answers",
+  ASKED_QUESTION = "asked_question",
+  WINNER = "winner",
+  ASKING_NEXT = "asking_next"
 }
 
 class User {

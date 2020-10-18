@@ -124,8 +124,7 @@ class AnswerDBHandler {
     return true;
   }
 
-  static async setFavorite(room: Room, question: Question, displayPosition: number): Promise<Answer> {
-    let answer = await this.fromPosition(room, question, displayPosition, AnswerState.REVEALED);
+  static async setFavorite(room: Room, question: Question, answer: Answer): Promise<Answer> {
     await this.clearFavorite(room, question);
 
     await pool.query(`
