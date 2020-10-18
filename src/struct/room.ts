@@ -43,6 +43,7 @@ class Room extends BaseRoom {
 
   questions: Question[];
   answers: Answer[];
+  answerUserIds: number[];
   favoriteAnswers: number[];
 
   constructor(room: Room) {
@@ -53,6 +54,7 @@ class Room extends BaseRoom {
 
     this.questions = room.questions || [];
     this.answers = room.answers || [];
+    this.answerUserIds = room.answerUserIds || [];
     this.favoriteAnswers = room.favoriteAnswers || [];
   }
 
@@ -76,7 +78,7 @@ class Room extends BaseRoom {
 
     this.forEachUser((user) => {
       if (exclude !== user.id && user.active && user.setup) activeUsers.push(user);
-    })
+    });
 
     return activeUsers;
   }

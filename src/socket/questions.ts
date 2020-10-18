@@ -101,13 +101,18 @@ class QuestionEventHandler extends SocketEventHandler {
       let info = await this.getQuestionInfo(RoomState.COLLECTING_ANSWERS, UserState.ASKING_QUESTION);
 
       let answers = await db.answers.shuffle(info.room, info.question);
-      answers.forEach((answer) => answer.strip());
+      let answerUserIds: number[] = [];
+      answers.forEach((answer) => {
+        if (answer.userId) answerUserIds.push(answer.userId);
+        answer.strip();
+      });
 
       await db.rooms.setState(info.room, RoomState.READING_ANSWERS);
       await db.rooms.setUserState(info.user.id, info.room.id, UserState.READING_ANSWERS);
 
       this.io.to(info.room.tag).emit("startReadingAnswers", {
-        answers: answers
+        answers: answers,
+        answerUserIds: answerUserIds
       });
 
       return {success: true};

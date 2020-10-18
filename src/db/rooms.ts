@@ -135,7 +135,11 @@ class RoomDBHandler {
 
           if (room.state === RoomState.READING_ANSWERS) {
             let answers = await db.answers.getAll(room, question, true);
-            answers.forEach((answer) => answer.strip());
+            room.answerUserIds = [];
+            answers.forEach((answer) => {
+              if (answer.userId) room.answerUserIds.push(answer.userId);
+              answer.strip();
+            });
 
             room.answers = answers;
 
