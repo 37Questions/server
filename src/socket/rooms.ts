@@ -1,6 +1,6 @@
 import {SocketEventHandler} from "./helpers";
 import db from "../db/db";
-import {Room, RoomState, RoomVisibility} from "../struct/room";
+import {Room, RoomState, RoomVisibility, RoomVotingMethod} from "../struct/room";
 import {Message} from "../struct/message";
 import {UserState} from "../struct/user";
 import {Util} from "../helpers";
@@ -47,6 +47,10 @@ class RoomEventHandler extends SocketEventHandler {
         startNewRound = true;
       } else if (roomState === RoomState.READING_ANSWERS && userState === UserState.READING_ANSWERS) {
         startNewRound = true;
+      } else if (roomState === RoomState.VIEWING_RESULTS) {
+        let method = room.votingMethod;
+        if (method === RoomVotingMethod.WINNER && userState === UserState.WINNER) startNewRound = true;
+        else if (method === RoomVotingMethod.ROTATE && userState === UserState.ASKING_NEXT) startNewRound = true;
       }
 
       if (startNewRound) {
