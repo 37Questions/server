@@ -28,7 +28,7 @@ class AnswerInfo extends QuestionInfo {
 }
 
 class QuestionEventHandler extends SocketEventHandler {
-  private async getQuestionInfo(expectedRoomState: RoomState, expectedUserState: UserState, getAllUsers = false): Promise<QuestionInfo> {
+  private async getQuestionInfo(expectedRoomState: RoomState, expectedUserState: UserState | null = null, getAllUsers = false): Promise<QuestionInfo> {
     if (!this.socketUser.roomId) throw new Error("Not in a room");
 
     let room = await db.rooms.get(this.socketUser.roomId, getAllUsers);
@@ -36,10 +36,9 @@ class QuestionEventHandler extends SocketEventHandler {
 
     let user: User;
     if (getAllUsers) user = room.users[this.socketUser.id];
-    else {
-      user = await db.rooms.getUser(this.socketUser.id, room.id);
-      if (user.state !== expectedUserState) throw new Error("Unexpected user state");
-    }
+    else user = await db.rooms.getUser(this.socketUser.id, room.id);
+
+    if (expectedUserState && user.state !== expectedUserState) throw new Error("Unexpected user state");
 
     let question = await db.questions.getSelected(room);
     if (!question) throw new Error("No question selected");
@@ -175,6 +174,8 @@ class QuestionEventHandler extends SocketEventHandler {
       let guessResults: Record<number, boolean> = {};
       let winnerId: number = -1;
 
+      let correctAnswers = 0;
+
       answers.forEach((answer) => {
         if (answer.displayPosition === undefined) throw new Error("Answers must be sorted before they can be finalized");
         if (answer.guesses.length === 0) throw new Error("All answers must be guessed before guessing can be finalized");
@@ -184,14 +185,18 @@ class QuestionEventHandler extends SocketEventHandler {
           db.answers.setFavorite(info.room, info.question, answer);
           winnerId = answer.userId;
         }
-        guessResults[answer.displayPosition] = answer.userId === answer.guesses[0].guessedUserId;
+        let isCorrect = answer.userId === answer.guesses[0].guessedUserId;
+        guessResults[answer.displayPosition] = isCorrect;
+        if (isCorrect) correctAnswers++;
       });
 
       if (winnerId === -1) throw new Error("Failed to determine a winner for the round");
 
       await db.rooms.setState(info.room, RoomState.VIEWING_RESULTS);
-      await db.rooms.setUserState(info.user.id, info.room.id, UserState.ASKED_QUESTION);
-      await db.rooms.setUserState(winnerId, info.room.id, UserState.WINNER);
+
+      // TODO: customize how points are received
+      await db.rooms.setUserState(info.user.id, info.room.id, UserState.ASKED_QUESTION, correctAnswers);
+      await db.rooms.setUserState(winnerId, info.room.id, UserState.WINNER, 2);
 
       let data = {
         guessResults: guessResults,
@@ -234,6 +239,29 @@ class QuestionEventHandler extends SocketEventHandler {
       }
 
       this.io.to(info.room.tag).emit("startViewingResults", data);
+      return {success: true};
+    });
+
+    this.listen("finishRound", async () => {
+      let info = await this.getQuestionInfo(RoomState.VIEWING_RESULTS);
+      let [method, state] = [info.room.votingMethod, info.user.state];
+
+      if (method === RoomVotingMethod.WINNER && state !== UserState.WINNER) throw new Error("Only the winner can start the next round");
+      if (method === RoomVotingMethod.ROTATE && state !== UserState.ASKING_NEXT) throw new Error("Insufficient permission to start next round");
+
+      await db.rooms.resetRound(info.room);
+
+      let questions = await db.questions.getSelectionOptions(info.room);
+      await db.rooms.setUserState(info.user.id, info.room.id, UserState.SELECTING_QUESTION);
+
+      this.io.to(Room.tag(info.room.id, info.user.id)).emit("newQuestionsList", {
+        questions: questions
+      });
+
+      this.io.to(info.room.tag).emit("startRound", {
+        chosenUserId: info.user.id
+      });
+
       return {success: true};
     });
   }

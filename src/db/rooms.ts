@@ -272,15 +272,15 @@ class RoomDBHandler {
     `, [UserState.ANSWERING_QUESTION, room.id]);
   }
 
-  static async setUserState(userId: number | string, roomId: number | string, state: UserState): Promise<boolean> {
+  static async setUserState(userId: number | string, roomId: number | string, state: UserState, scoreIncrease = 0): Promise<boolean> {
     userId = Util.parseId(userId);
     roomId = Util.parseId(roomId);
 
     let res = await pool.query(`
       UPDATE roomUsers
-      SET state = ?
+      SET state = ?, score = score + ?
       WHERE userId = ? AND roomId = ?
-    `, [state, userId, roomId]);
+    `, [state, scoreIncrease, userId, roomId]);
 
     return res.affectedRows > 0;
   }
