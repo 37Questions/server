@@ -191,7 +191,7 @@ class RoomEventHandler extends SocketEventHandler {
       if (!this.socketUser.roomId) throw new Error("Not in a room");
       await this.leaveCurRoom();
       return {success: true};
-    })
+    });
 
     this.listen("disconnect", async (reason) => {
       await this.leaveCurRoom();

@@ -64,6 +64,13 @@ class RoomDBHandler {
     });
   }
 
+  static async markActive(room: Room): Promise<void> {
+    let timestamp = Util.unixTimestamp();
+    await pool.query(`
+      UPDATE rooms SET lastActive = ? WHERE id = ?
+    `, [timestamp, room.id]);
+  }
+
   static async get(id: number | string, withUsers = false, withExtras = false): Promise<Room> {
     let res = await pool.query(`SELECT * FROM rooms WHERE id = ?`, [Util.parseId(id)]);
 
@@ -218,9 +225,9 @@ class RoomDBHandler {
   static async setState(room: Room, state: RoomState): Promise<boolean> {
     let res = await pool.query(`
       UPDATE rooms
-      SET state = ?
+      SET state = ?, lastActive = ?
       WHERE id = ?
-    `, [state, room.id]);
+    `, [state, Util.unixTimestamp(), room.id]);
 
     return res.affectedRows > 0;
   }
