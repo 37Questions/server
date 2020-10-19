@@ -50,7 +50,7 @@ class RoomEventHandler extends SocketEventHandler {
       } else if (roomState === RoomState.VIEWING_RESULTS) {
         let method = room.votingMethod;
         if (method === RoomVotingMethod.WINNER && userState === UserState.WINNER) startNewRound = true;
-        else if (method === RoomVotingMethod.ROTATE && userState === UserState.ASKING_NEXT) startNewRound = true;
+        else if (method === RoomVotingMethod.ROTATE && (userState === UserState.ASKING_NEXT || userState === UserState.WINNER_ASKING_NEXT)) startNewRound = true;
       }
 
       if (startNewRound) {

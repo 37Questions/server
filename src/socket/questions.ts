@@ -196,7 +196,6 @@ class QuestionEventHandler extends SocketEventHandler {
 
       // TODO: customize how points are received
       await db.rooms.setUserState(info.user.id, info.room.id, UserState.ASKED_QUESTION, correctAnswers);
-      await db.rooms.setUserState(winnerId, info.room.id, UserState.WINNER, 2);
 
       let data = {
         guessResults: guessResults,
@@ -233,10 +232,13 @@ class QuestionEventHandler extends SocketEventHandler {
           // TODO: show results temporarily and then reset
           console.warn("Unable to find a suitable player to ask the next question");
           throw new Error("Failed to find a suitable player to ask the next question");
-        } else {
+        } else if (data.askingNextId !== winnerId) {
           await db.rooms.setUserState(data.askingNextId, info.room.id, UserState.ASKING_NEXT);
         }
       }
+
+      let winnerState = data.askingNextId === winnerId ? UserState.WINNER_ASKING_NEXT : UserState.WINNER;
+      await db.rooms.setUserState(winnerId, info.room.id, winnerState, 2);
 
       this.io.to(info.room.tag).emit("startViewingResults", data);
       return {success: true};
@@ -247,7 +249,7 @@ class QuestionEventHandler extends SocketEventHandler {
       let [method, state] = [info.room.votingMethod, info.user.state];
 
       if (method === RoomVotingMethod.WINNER && state !== UserState.WINNER) throw new Error("Only the winner can start the next round");
-      if (method === RoomVotingMethod.ROTATE && state !== UserState.ASKING_NEXT) throw new Error("Insufficient permission to start next round");
+      if (method === RoomVotingMethod.ROTATE && !(state === UserState.ASKING_NEXT || state === UserState.WINNER_ASKING_NEXT)) throw new Error("Insufficient permission to start next round");
 
       await db.rooms.resetRound(info.room);
 
