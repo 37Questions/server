@@ -58,7 +58,7 @@ CREATE TABLE `roomUsers` (
   roomId INT NOT NULL,
   active BOOLEAN DEFAULT TRUE,
   score INT NOT NULL DEFAULT 0,
-  state ENUM("idle", "selecting_question", "asking_question", "answering_question", "reading_answers", "asked_question", "winner", "asking_next") DEFAULT "idle",
+  state ENUM("idle", "selecting_question", "asking_question", "answering_question", "reading_answers", "asked_question", "winner", "asking_next", "winner_asking_next") DEFAULT "idle",
   PRIMARY KEY (userId, roomId),
   FOREIGN KEY (userId) REFERENCES users(id) ON DELETE CASCADE,
   FOREIGN KEY (roomId) REFERENCES rooms(id) ON DELETE CASCADE

@@ -2,7 +2,7 @@ import {Room} from "../struct/room";
 import {Question, QuestionState} from "../struct/question";
 import pool from "./pool";
 import {Util} from "../helpers";
-import {User} from "../struct/user";
+import db from "./db";
 
 class QuestionDBHandler {
   static async get(id: number | string): Promise<Question> {
@@ -103,6 +103,7 @@ class QuestionDBHandler {
 
     if (res.affectedRows < 1) throw new Error("Invalid question choice");
 
+    await db.rooms.markActive(room);
     await pool.query(`
       DELETE FROM roomQuestions 
       WHERE roomId = ? AND state = ?

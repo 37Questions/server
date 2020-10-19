@@ -14,6 +14,7 @@ class AnswerDBHandler {
       INSERT INTO answers (roomId, questionId, userId, answer)
       VALUES (?, ?, ?, ?)
     `, [room.id, question.id, user.id, answer]);
+    await db.rooms.markActive(room);
   }
 
   static async get(room: Room, question: Question, user: User): Promise<Answer | null> {
@@ -98,6 +99,7 @@ class AnswerDBHandler {
       answer.displayPosition = pos;
     }
 
+    await db.rooms.markActive(room);
     return answers;
   }
 
@@ -112,6 +114,7 @@ class AnswerDBHandler {
     answer.state = AnswerState.REVEALED;
     answer.strip();
 
+    await db.rooms.markActive(room);
     return answer;
   }
 
@@ -121,6 +124,7 @@ class AnswerDBHandler {
       WHERE roomId = ? AND questionId = ? AND state = ?
     `, [AnswerState.REVEALED, room.id, question.id, AnswerState.FAVORITE]);
 
+    await db.rooms.markActive(room);
     return true;
   }
 
@@ -135,6 +139,7 @@ class AnswerDBHandler {
     answer.state = AnswerState.FAVORITE;
     answer.strip();
 
+    await db.rooms.markActive(room);
     return answer;
   }
 
@@ -169,6 +174,8 @@ class AnswerDBHandler {
         VALUES (?, ?, ?, ?)
       `, [room.id, question.id, user.id, answer.displayPosition]);
     }
+
+    await db.rooms.markActive(room);
     return answer;
   }
 
@@ -176,6 +183,7 @@ class AnswerDBHandler {
     await pool.query(`
       DELETE FROM favoriteAnswers WHERE roomId = ? AND questionId = ? AND userId = ?
     `, [room.id, question.id, user.id]);
+    await db.rooms.markActive(room);
   }
 
   static async getFavorites(room: Room, question: Question, strip = false): Promise<FavoriteAnswer[]> {
@@ -249,6 +257,8 @@ class AnswerDBHandler {
         VALUES (?, ?, ?, ?, ?)
       `, [room.id, question.id, user.id, guessedUser.id, answer.id]);
     }
+
+    await db.rooms.markActive(room);
   }
 }
 

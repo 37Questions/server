@@ -8,7 +8,8 @@ enum UserState {
   READING_ANSWERS = "reading_answers",
   ASKED_QUESTION = "asked_question",
   WINNER = "winner",
-  ASKING_NEXT = "asking_next"
+  ASKING_NEXT = "asking_next",
+  WINNER_ASKING_NEXT = "winner_asking_next"
 }
 
 class User {

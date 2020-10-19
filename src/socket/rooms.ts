@@ -50,7 +50,7 @@ class RoomEventHandler extends SocketEventHandler {
       } else if (roomState === RoomState.VIEWING_RESULTS) {
         let method = room.votingMethod;
         if (method === RoomVotingMethod.WINNER && userState === UserState.WINNER) startNewRound = true;
-        else if (method === RoomVotingMethod.ROTATE && userState === UserState.ASKING_NEXT) startNewRound = true;
+        else if (method === RoomVotingMethod.ROTATE && (userState === UserState.ASKING_NEXT || userState === UserState.WINNER_ASKING_NEXT)) startNewRound = true;
       }
 
       if (startNewRound) {
@@ -191,7 +191,7 @@ class RoomEventHandler extends SocketEventHandler {
       if (!this.socketUser.roomId) throw new Error("Not in a room");
       await this.leaveCurRoom();
       return {success: true};
-    })
+    });
 
     this.listen("disconnect", async (reason) => {
       await this.leaveCurRoom();
