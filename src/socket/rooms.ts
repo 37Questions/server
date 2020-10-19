@@ -1,6 +1,6 @@
 import {SocketEventHandler} from "./helpers";
 import db from "../db/db";
-import {Room, RoomState, RoomVisibility} from "../struct/room";
+import {Room, RoomState, RoomVisibility, RoomVotingMethod} from "../struct/room";
 import {Message} from "../struct/message";
 import {UserState} from "../struct/user";
 import {Util} from "../helpers";
@@ -47,6 +47,10 @@ class RoomEventHandler extends SocketEventHandler {
         startNewRound = true;
       } else if (roomState === RoomState.READING_ANSWERS && userState === UserState.READING_ANSWERS) {
         startNewRound = true;
+      } else if (roomState === RoomState.VIEWING_RESULTS) {
+        let method = room.votingMethod;
+        if (method === RoomVotingMethod.WINNER && userState === UserState.WINNER) startNewRound = true;
+        else if (method === RoomVotingMethod.ROTATE && userState === UserState.ASKING_NEXT) startNewRound = true;
       }
 
       if (startNewRound) {
@@ -94,7 +98,7 @@ class RoomEventHandler extends SocketEventHandler {
 
     let room = await db.rooms.get(roomId, true, true);
     if (!room.users) throw new Error("Corrupt Room (No users found)");
-    if (room.visibility !== RoomVisibility.Public && room.token !== token) throw new Error("Invalid Token");
+    if (room.visibility !== RoomVisibility.PUBLIC && room.token !== token) throw new Error("Invalid Token");
 
     let shouldCreateMessage = !!(user.name && user.icon);
     let activeUsers = room.getActiveUsers();
@@ -122,7 +126,7 @@ class RoomEventHandler extends SocketEventHandler {
         }
       } else {
         if (room.state === RoomState.COLLECTING_ANSWERS) {
-          let answer = await db.questions.getAnswer(room, user, room.questions[0]);
+          let answer = await db.answers.get(room, room.questions[0], user);
           if (answer) user.state = UserState.IDLE;
         }
         await db.rooms.setUserActive(this.socketUser.id, roomId, true, user.state);

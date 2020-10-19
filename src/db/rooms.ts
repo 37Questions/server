@@ -13,7 +13,7 @@ class RoomDBHandler {
     if (!Room.VisibilityOptions.includes(visibility)) throw new Error("Invalid Visibility Setting");
     if (!Room.VotingMethods.includes(votingMethod)) throw new Error("Invalid Voting Method");
 
-    let isPublic = visibility === RoomVisibility.Public;
+    let isPublic = visibility === RoomVisibility.PUBLIC;
 
     let timestamp = Util.unixTimestamp();
     let token = isPublic ? undefined : Util.makeHash(Constants.TokenLength);
@@ -133,16 +133,35 @@ class RoomDBHandler {
         if (question) {
           room.questions = [question];
 
-          if (room.state === RoomState.READING_ANSWERS) {
-            let answers = await db.questions.getAnswers(room, question);
-            if (answers) {
-              answers.forEach((answer) => answer.strip());
-              room.answers = answers;
+          if (room.state !== RoomState.COLLECTING_ANSWERS) {
+            let answers = await db.answers.getAll(room, question, true);
+            let guessResults: Record<number, boolean> = {};
+            room.answerUserIds = [];
+            answers.forEach((answer) => {
+              if (answer.userId) {
+                room.answerUserIds.push(answer.userId);
+                if (answer.displayPosition !== undefined && answer.guesses.length > 0) {
+                  // TODO: democratic voting
+                  guessResults[answer.displayPosition] = answer.guesses[0].guessedUserId === answer.userId;
+                }
+              }
+              answer.strip();
+            });
+
+            room.answers = answers;
+
+            let roomFavorites = await db.answers.getFavorites(room, question, true);
+            let favorites: number[] = [];
+
+            roomFavorites.forEach((favorite) => favorites.push(favorite.displayPosition));
+            room.favoriteAnswers = favorites;
+
+            if (room.state === RoomState.VIEWING_RESULTS) {
+              room.guessResults = guessResults;
             }
           }
         }
       }
-
     }
     return room;
   }
@@ -151,7 +170,7 @@ class RoomDBHandler {
     let res = await pool.query(`
       SELECT * FROM rooms WHERE visibility = ?
       LIMIT 15
-    `, [RoomVisibility.Public]);
+    `, [RoomVisibility.PUBLIC]);
 
     let rooms: RoomInfo[] = [];
 
@@ -182,7 +201,7 @@ class RoomDBHandler {
         id: row.id,
         name: row.name,
         lastActive: lastActive,
-        visibility: RoomVisibility.Public,
+        visibility: RoomVisibility.PUBLIC,
         votingMethod: row.votingMethod,
         players:  users.length,
         activePlayers: activeUsers
@@ -253,15 +272,15 @@ class RoomDBHandler {
     `, [UserState.ANSWERING_QUESTION, room.id]);
   }
 
-  static async setUserState(userId: number | string, roomId: number | string, state: UserState): Promise<boolean> {
+  static async setUserState(userId: number | string, roomId: number | string, state: UserState, scoreIncrease = 0): Promise<boolean> {
     userId = Util.parseId(userId);
     roomId = Util.parseId(roomId);
 
     let res = await pool.query(`
       UPDATE roomUsers
-      SET state = ?
+      SET state = ?, score = score + ?
       WHERE userId = ? AND roomId = ?
-    `, [state, userId, roomId]);
+    `, [state, scoreIncrease, userId, roomId]);
 
     return res.affectedRows > 0;
   }

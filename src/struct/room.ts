@@ -2,11 +2,24 @@ import {User} from "./user";
 import {Message} from "./message";
 import {Question} from "./question";
 import {Util} from "../helpers";
-import {Answer} from "./answers";
+import {Answer, FavoriteAnswer} from "./answers";
 
-class RoomVisibility {
-  static Private = "private";
-  static Public = "public";
+enum RoomVisibility {
+  PRIVATE = "private",
+  PUBLIC = "public"
+}
+
+enum RoomVotingMethod {
+  WINNER = "winner",
+  ROTATE = "rotate",
+  DEMOCRATIC = "democratic"
+}
+
+enum RoomState {
+  PICKING_QUESTION = "picking_question",
+  COLLECTING_ANSWERS = "collecting_answers",
+  READING_ANSWERS = "reading_answers",
+  VIEWING_RESULTS = "viewing_results"
 }
 
 class BaseRoom {
@@ -27,12 +40,6 @@ class BaseRoom {
   }
 }
 
-enum RoomState {
-  PICKING_QUESTION = "picking_question",
-  COLLECTING_ANSWERS = "collecting_answers",
-  READING_ANSWERS = "reading_answers"
-}
-
 class Room extends BaseRoom {
   static VisibilityOptions = ["private", "public"];
   static VotingMethods = ["winner", "rotate", "democratic"];
@@ -43,6 +50,9 @@ class Room extends BaseRoom {
 
   questions: Question[];
   answers: Answer[];
+  answerUserIds: number[];
+  favoriteAnswers: number[];
+  guessResults: Record<number, boolean>;
 
   constructor(room: Room) {
     super(room);
@@ -52,6 +62,9 @@ class Room extends BaseRoom {
 
     this.questions = room.questions || [];
     this.answers = room.answers || [];
+    this.answerUserIds = room.answerUserIds || [];
+    this.favoriteAnswers = room.favoriteAnswers || [];
+    this.guessResults = room.guessResults || {};
   }
 
   static tag(id: number | string, userId?: number | string): string {
@@ -74,7 +87,7 @@ class Room extends BaseRoom {
 
     this.forEachUser((user) => {
       if (exclude !== user.id && user.active && user.setup) activeUsers.push(user);
-    })
+    });
 
     return activeUsers;
   }
@@ -92,4 +105,4 @@ class RoomInfo extends BaseRoom {
   }
 }
 
-export {Room, RoomInfo, RoomVisibility, RoomState};
+export {Room, RoomInfo, RoomVisibility, RoomVotingMethod, RoomState};
