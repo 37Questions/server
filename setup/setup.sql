@@ -45,6 +45,7 @@ CREATE TABLE `users` (
   PRIMARY KEY (id)
 );
 
+
 CREATE TABLE `questionSuggestions` (
   id INT NOT NULL AUTO_INCREMENT,
   question VARCHAR(160) NOT NULL,
@@ -59,10 +60,15 @@ CREATE TABLE `roomUsers` (
   active BOOLEAN DEFAULT TRUE,
   score INT NOT NULL DEFAULT 0,
   state ENUM("idle", "selecting_question", "asking_question", "answering_question", "reading_answers", "asked_question", "winner", "asking_next", "winner_asking_next") DEFAULT "idle",
+  kickVotesPlaced INT DEFAULT 0,
+  timesKicked INT DEFAULT 0,
   PRIMARY KEY (userId, roomId),
   FOREIGN KEY (userId) REFERENCES users(id) ON DELETE CASCADE,
   FOREIGN KEY (roomId) REFERENCES rooms(id) ON DELETE CASCADE
 );
+
+ALTER TABLE roomUsers ADD kickVotesPlaced INT DEFAULT 0;
+ALTER TABLE roomUsers ADD timesKicked INT DEFAULT 0;
 
 CREATE TABLE `answers` (
   id INT NOT NULL AUTO_INCREMENT,
@@ -122,4 +128,14 @@ CREATE TABLE `messageLikes` (
   PRIMARY KEY(messageId, userId),
   FOREIGN KEY (messageId) REFERENCES messages(id) ON DELETE CASCADE,
   FOREIGN KEY (userId) REFERENCES users(id) ON DELETE CASCADE
+);
+
+CREATE TABLE `kickVotes` (
+  roomId INT NOT NULL,
+  userId INT NOT NULL,
+  votedUserId INT NOT NULL,
+  PRIMARY KEY (roomId, userId, votedUserId),
+  FOREIGN KEY (roomId) REFERENCES rooms(id) ON DELETE CASCADE,
+  FOREIGN KEY (userId) REFERENCES users(id) ON DELETE CASCADE,
+  FOREIGN KEY (votedUserId) REFERENCES users(id) ON DELETE CASCADE
 );

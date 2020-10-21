@@ -135,6 +135,17 @@ class RoomDBHandler {
         if (msg === messages.length - 1) room.messages[row.id].isChained = false;
       }
 
+      let kickVotes = await pool.query(`
+        SELECT userId, votedUserId
+        FROM kickVotes WHERE roomId = ?
+      `, [room.id]);
+
+      for (let k = 0; k < kickVotes.length; k++) {
+        let vote = kickVotes[k];
+        if (room.kickVotes.hasOwnProperty(vote.votedUserId)) room.kickVotes[vote.votedUserId].push(vote.userId);
+        else room.kickVotes[vote.votedUserId] = [vote.userId];
+      }
+
       if (room.state !== RoomState.PICKING_QUESTION) {
         let question = await db.questions.getSelected(room);
         if (question) {
@@ -315,6 +326,50 @@ class RoomDBHandler {
     return pool.query(`
       INSERT INTO roomUsers (userId, roomId, state) VALUES (?, ?, ?)
     `, [userId, roomId, state]);
+  }
+
+  static async getKickVotes(room: Room, user: User): Promise<number[]> {
+    let res = await pool.query(`
+      SELECT userId FROM kickVotes
+      WHERE roomId = ? AND votedUserId = ?
+    `, [room.id, user.id]);
+
+    let votes = [];
+    for (let r = 0; r < res.length; r++) {
+      votes.push(res[r].userId);
+    }
+
+    return votes;
+  }
+
+  static async placeKickVote(room: Room, user: User, votedUser: User): Promise<number[]> {
+    let votes = await db.rooms.getKickVotes(room, votedUser);
+    if (votes.includes(user.id)) throw new Error("Can't vote on the same player twice");
+
+    await pool.query(`
+      INSERT INTO kickVotes (roomId, userId, votedUserId) VALUES (?, ?, ?)
+    `, [room.id, user.id, votedUser.id]);
+
+    await pool.query(`
+      UPDATE roomUsers SET kickVotesPlaced = kickVotesPlaced + 1
+      WHERE userId = ? AND roomId = ?
+    `, [user.id, room.id]);
+
+    votes.push(user.id);
+    return votes;
+  }
+
+  static async kickUser(room: Room, user: User) {
+    await pool.query(`
+      UPDATE roomUsers SET timesKicked = timesKicked + 1
+      WHERE userId = ? AND roomId = ?
+    `, [user.id, room.id]);
+  }
+
+  static async clearKickVotes(room: Room, user: User) {
+    await pool.query(`
+      DELETE FROM kickVotes WHERE roomId = ? AND votedUserId = ?
+    `, [room.id, user.id]);
   }
 }
 
