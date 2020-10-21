@@ -174,10 +174,13 @@ class RoomDBHandler {
   }
 
   static async getList(): Promise<RoomInfo[]> {
+    let timestamp = Util.unixTimestamp();
     let res = await pool.query(`
-      SELECT * FROM rooms WHERE visibility = ?
+      SELECT * FROM rooms 
+      WHERE visibility = ? AND ? - lastActive < 900
+      ORDER BY lastActive DESC
       LIMIT 15
-    `, [RoomVisibility.PUBLIC]);
+    `, [RoomVisibility.PUBLIC, timestamp]);
 
     let rooms: RoomInfo[] = [];
 
