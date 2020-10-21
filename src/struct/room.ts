@@ -2,7 +2,7 @@ import {User} from "./user";
 import {Message} from "./message";
 import {Question} from "./question";
 import {Util} from "../helpers";
-import {Answer, FavoriteAnswer} from "./answers";
+import {Answer} from "./answers";
 
 enum RoomVisibility {
   PRIVATE = "private",
@@ -48,6 +48,9 @@ class Room extends BaseRoom {
   users: Record<number, User>;
   messages: Record<number, Message>;
 
+  // kickVotes[votedUserId] = {userId, userId...}
+  kickVotes: Record<number, number[]>;
+
   questions: Question[];
   answers: Answer[];
   answerUserIds: number[];
@@ -59,6 +62,8 @@ class Room extends BaseRoom {
     this.state = room.state;
     this.users = room.users || {};
     this.messages = room.messages || {};
+
+    this.kickVotes = room.kickVotes || {};
 
     this.questions = room.questions || [];
     this.answers = room.answers || [];

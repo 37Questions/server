@@ -2,7 +2,7 @@ import {SocketEventHandler} from "./helpers";
 import db from "../db/db";
 import {Room, RoomState, RoomVisibility, RoomVotingMethod} from "../struct/room";
 import {Message} from "../struct/message";
-import {UserState} from "../struct/user";
+import {User, UserState} from "../struct/user";
 import {Util} from "../helpers";
 
 class RoomJoinInfo {
@@ -16,30 +16,14 @@ class RoomJoinInfo {
 }
 
 class RoomEventHandler extends SocketEventHandler {
-  async leaveCurRoom() {
-    let user = await db.users.get(this.socketUser.id, true);
-    if (!this.socketUser.roomId) return user;
-
-    this.socket.leave(Room.tag(this.socketUser.roomId));
-    this.socket.leave(Room.tag(this.socketUser.roomId, this.socketUser.id));
-
-    if (this.socketUser.loggedOut) {
-      this.socketUser.roomId = undefined;
-      return user;
-    }
-
-    let room = await db.rooms.get(this.socketUser.roomId, true);
-    let roomUser = room.users[user.id];
+  async onUserLeft(room: Room, user: User, messageText="Left the room") {
+    await db.rooms.clearKickVotes(room, user);
     let message, additionalUpdate;
 
-    if (roomUser && roomUser.name && roomUser.icon) {
-      let messageBody = "Left the room";
-      let activeUsers = room.getActiveUsers(roomUser.id);
-
-      let selectedUser = activeUsers.length > 0 ? activeUsers[Util.getRandomInt(0, activeUsers.length - 1)] : undefined;
+    if (user && user.name && user.icon) {
       let startNewRound = false;
 
-      let [roomState, userState] = [room.state, roomUser.state];
+      let [roomState, userState] = [room.state, user.state];
 
       if (roomState === RoomState.PICKING_QUESTION && userState === UserState.SELECTING_QUESTION) {
         startNewRound = true;
@@ -54,8 +38,11 @@ class RoomEventHandler extends SocketEventHandler {
       }
 
       if (startNewRound) {
+        let activeUsers = room.getActiveUsers(user.id);
+        let selectedUser = activeUsers.length > 0 ? activeUsers[Util.getRandomInt(0, activeUsers.length - 1)] : undefined;
+
         if (selectedUser) {
-          messageBody = `Left the room, leaving ${selectedUser.name} to pick a new question`;
+          messageText = messageText + `, leaving ${selectedUser.name} to pick a new question`;
           additionalUpdate = {
             event: "startRound",
             data: {
@@ -76,16 +63,34 @@ class RoomEventHandler extends SocketEventHandler {
         }
       }
 
-      message = await db.messages.create(roomUser, room, messageBody, true);
+      message = await db.messages.create(user, room, messageText, true);
     }
 
-    this.socket.to(room.tag).emit("userLeft", {
-      id: this.socketUser.id,
+    this.io.to(room.tag).emit("userLeft", {
+      id: user.id,
       message: message,
       additionalUpdate: additionalUpdate
     });
 
-    await db.rooms.setUserActive(this.socketUser.id, room.id, false).then(() => {
+    return db.rooms.setUserActive(user.id, room.id, false);
+  }
+
+  async leaveCurRoom() {
+    let user = await db.users.get(this.socketUser.id, true);
+    if (!this.socketUser.roomId) return user;
+
+    this.socket.leave(Room.tag(this.socketUser.roomId));
+    this.socket.leave(Room.tag(this.socketUser.roomId, this.socketUser.id));
+
+    if (this.socketUser.loggedOut) {
+      this.socketUser.roomId = undefined;
+      return user;
+    }
+
+    let room = await db.rooms.get(this.socketUser.roomId, true);
+    let roomUser = room.users[user.id];
+
+    await this.onUserLeft(room, roomUser).then(() => {
       console.info(`Removed user #${this.socketUser.id} from active room #${room.id}`);
       this.socketUser.roomId = undefined;
     });
@@ -202,6 +207,35 @@ class RoomEventHandler extends SocketEventHandler {
       console.info(`Logging out user #${this.socketUser.id}`);
       this.socketUser.loggedOut = true;
       this.socket.disconnect(true);
+    });
+
+    this.listen("placeKickVote", async (data) => {
+      if (!this.socketUser.roomId) throw new Error("Not in a room");
+
+      let room = await db.rooms.get(this.socketUser.roomId, true);
+      let [user, votedUser] = [room.users[this.socketUser.id], room.users[data.userId]];
+
+      let votes = await db.rooms.placeKickVote(room, user, votedUser);
+
+      let voteMessage;
+      if (votedUser.name) {
+        voteMessage = await db.messages.create(user, room, `Voted to kick ${votedUser.name}`, true);
+      }
+
+      this.io.to(room.tag).emit("kickVotePlaced", {
+        userId: user.id,
+        votedUserId: votedUser.id,
+        message: voteMessage
+      });
+
+      // TODO: configure required number of votes to kick
+      if (votes.length >= 3) {
+        await this.onUserLeft(room, votedUser, "Was kicked from the game");
+        await db.rooms.kickUser(room, votedUser);
+        this.socket.to(Room.tag(room.id, votedUser.id)).emit("kick");
+      }
+
+      return {success: true};
     });
   }
 }
