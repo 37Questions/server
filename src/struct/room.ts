@@ -9,6 +9,12 @@ enum RoomVisibility {
   PUBLIC = "public"
 }
 
+enum RoomAnswerType {
+  MIXED = "mixed",
+  TEXT = "text",
+  DRAWN = "drawn"
+}
+
 enum RoomVotingMethod {
   WINNER = "winner",
   ROTATE = "rotate",
@@ -27,6 +33,7 @@ class BaseRoom {
   name: string;
   lastActive: number;
   visibility: string;
+  answerType: string;
   votingMethod: string;
   token?: string;
 
@@ -35,6 +42,8 @@ class BaseRoom {
     this.name = room.name || ("Room #" + room.id);
     this.lastActive = room.lastActive;
     this.visibility = room.visibility;
+
+    this.answerType = room.answerType;
     this.votingMethod = room.votingMethod;
     this.token = room.token;
   }
@@ -42,6 +51,7 @@ class BaseRoom {
 
 class Room extends BaseRoom {
   static VisibilityOptions = ["private", "public"];
+  static AnswerTypes = ["mixed", "text", "drawn"];
   static VotingMethods = ["winner", "rotate", "democratic"];
 
   state: RoomState;
@@ -110,4 +120,4 @@ class RoomInfo extends BaseRoom {
   }
 }
 
-export {Room, RoomInfo, RoomVisibility, RoomVotingMethod, RoomState};
+export {Room, RoomInfo, RoomVisibility, RoomAnswerType, RoomVotingMethod, RoomState};

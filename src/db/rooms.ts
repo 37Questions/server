@@ -6,11 +6,12 @@ import {Message, MessageLike} from "../struct/message";
 import db from "./db";
 
 class RoomDBHandler {
-  static async create(userId: number, name: string | undefined, visibility: string, votingMethod: string): Promise<Room> {
+  static async create(userId: number, name: string | undefined, visibility: string, answerType: string, votingMethod: string): Promise<Room> {
     if (!Validation.uint(userId)) throw new Error("Invalid User");
     let user = await db.users.get(userId);
 
     if (!Room.VisibilityOptions.includes(visibility)) throw new Error("Invalid Visibility Setting");
+    if (!Room.AnswerTypes.includes(answerType)) throw new Error("Invalid Answer Type");
     if (!Room.VotingMethods.includes(votingMethod)) throw new Error("Invalid Voting Method");
 
     let isPublic = visibility === RoomVisibility.PUBLIC;
@@ -21,12 +22,12 @@ class RoomDBHandler {
     let props = [];
     if (name) props.push(name);
 
-    props.push(timestamp, visibility, votingMethod);
+    props.push(timestamp, visibility, answerType, votingMethod);
     if (!isPublic) props.push(token);
 
     let res = await pool.query(`
-      INSERT INTO rooms (${name ? "name, " : ""}lastActive, visibility, votingMethod${isPublic ? "" : ", token"})
-      VALUES (${name ? "?, " : ""}?, ?, ?${isPublic ? "" : ", ?"})
+      INSERT INTO rooms (${name ? "name, " : ""}lastActive, visibility, answerType, votingMethod${isPublic ? "" : ", token"})
+      VALUES (${name ? "?, " : ""}?, ?, ?, ?${isPublic ? "" : ", ?"})
     `, props);
 
     let roomId = res.insertId;
@@ -223,6 +224,7 @@ class RoomDBHandler {
         name: row.name,
         lastActive: lastActive,
         visibility: RoomVisibility.PUBLIC,
+        answerType: row.answerType,
         votingMethod: row.votingMethod,
         players:  users.length,
         activePlayers: activeUsers

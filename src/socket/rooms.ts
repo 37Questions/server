@@ -1,6 +1,6 @@
 import {SocketEventHandler} from "./helpers";
 import db from "../db/db";
-import {Room, RoomState, RoomVisibility, RoomVotingMethod} from "../struct/room";
+import {Room, RoomAnswerType, RoomState, RoomVisibility, RoomVotingMethod} from "../struct/room";
 import {Message} from "../struct/message";
 import {User, UserState} from "../struct/user";
 import {Util} from "../helpers";
@@ -174,10 +174,11 @@ class RoomEventHandler extends SocketEventHandler {
   registerRoomEvents() {
     this.listen("createRoom", async (data) => {
       let name = data.name;
-      let visibility = data.visibility;
-      let votingMethod = data.votingMethod;
+      let visibility = data.visibility || RoomVisibility.PUBLIC;
+      let answerType = data.answerType || RoomAnswerType.MIXED;
+      let votingMethod = data.votingMethod || RoomVotingMethod.WINNER;
 
-      let room = await db.rooms.create(this.socketUser.id, name, visibility, votingMethod);
+      let room = await db.rooms.create(this.socketUser.id, name, visibility, answerType, votingMethod);
       room.questions = await db.questions.getSelectionOptions(room);
       return this.joinSocketRoom(new RoomJoinInfo(room)).then((room) => {
         console.info(`Created room #${room.id}`);
