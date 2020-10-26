@@ -67,9 +67,6 @@ CREATE TABLE `roomUsers` (
   FOREIGN KEY (roomId) REFERENCES rooms(id) ON DELETE CASCADE
 );
 
-ALTER TABLE roomUsers ADD kickVotesPlaced INT DEFAULT 0;
-ALTER TABLE roomUsers ADD timesKicked INT DEFAULT 0;
-
 CREATE TABLE `answers` (
   id INT NOT NULL AUTO_INCREMENT,
   roomId INT NOT NULL,
